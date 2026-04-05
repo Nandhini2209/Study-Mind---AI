@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>StudyMind AI – Mood-Based Study Planner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static' , filename='style.css')}}"/>
+</head>
+<body>
+  <!-- Ambient background blobs -->
+  <div class="bg-blob blob1"></div>
+  <div class="bg-blob blob2"></div>
+  <div class="bg-blob blob3"></div>
+
+  <!-- NAV -->
+  <nav class="navbar">
+    <div class="nav-brand">
+      <span class="brand-icon">⚡</span>
+      <span>StudyMind<span class="accent">AI</span></span>
+    </div>
+    <div class="nav-links">
+      <a href="#planner" class="nav-link active">Planner</a>
+      <a href="#tracker" class="nav-link">Tracker</a>
+      <a href="#progress" class="nav-link">Progress</a>
+    </div>
+    <div class="nav-streak">
+      <span class="streak-fire">🔥</span>
+      <span id="streakCount">0</span> day streak
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <header class="hero">
+    <div class="hero-tag">Gen-AI Powered • Pomodoro • Smart Planning</div>
+    <h1 class="hero-title">Study <span class="grad-text">Smarter</span>,<br>Not Harder.</h1>
+    <p class="hero-sub">Tell us your mood. We'll build your perfect study plan.</p>
+  </header>
+
+  <!-- MAIN APP -->
+  <main class="app-grid">
+
+    <!-- LEFT: INPUT PANEL -->
+    <section class="card input-card" id="planner">
+      <div class="card-header">
+        <h2>🎯 Create Study Plan</h2>
+        <span class="card-badge">AI Powered</span>
+      </div>
+
+      <!-- MOOD SELECTOR -->
+      <div class="field-group">
+        <label class="field-label">How are you feeling right now?</label>
+        <div class="mood-grid">
+          <button class="mood-btn" data-mood="motivated" onclick="selectMood(this)">
+            <span class="mood-emoji">🚀</span>
+            <span>Motivated</span>
+          </button>
+          <button class="mood-btn" data-mood="tired" onclick="selectMood(this)">
+            <span class="mood-emoji">😴</span>
+            <span>Tired</span>
+          </button>
+          <button class="mood-btn" data-mood="stressed" onclick="selectMood(this)">
+            <span class="mood-emoji">😟</span>
+            <span>Stressed</span>
+          </button>
+          <button class="mood-btn" data-mood="normal" onclick="selectMood(this)">
+            <span class="mood-emoji">😐</span>
+            <span>Normal</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- SUBJECT -->
+      <div class="field-group">
+        <label class="field-label">Subject / Topic</label>
+        <div class="subject-chips" id="subjectChips">
+          <button class="chip" onclick="selectChip(this, 'subject')">Python</button>
+          <button class="chip" onclick="selectChip(this, 'subject')">Math</button>
+          <button class="chip" onclick="selectChip(this, 'subject')">Physics</button>
+          <button class="chip" onclick="selectChip(this, 'subject')">Chemistry</button>
+          <button class="chip" onclick="selectChip(this, 'subject')">History</button>
+          <button class="chip" onclick="selectChip(this, 'subject')">English</button>
+          <button class="chip" onclick="selectChip(this, 'subject')">DSA</button>
+          <button class="chip" onclick="selectChip(this, 'subject')">ML/AI</button>
+        </div>
+        <input type="text" id="customSubject" class="text-input" placeholder="Or type your own subject..."/>
+      </div>
+
+      <!-- TIME -->
+      <div class="field-group">
+        <label class="field-label">Available Time</label>
+        <div class="time-slider-wrap">
+          <input type="range" id="timeSlider" min="30" max="300" step="15" value="120" oninput="updateTime(this)"/>
+          <div class="time-display"><span id="timeValue">2h 0m</span></div>
+        </div>
+        <div class="time-marks">
+          <span>30m</span><span>1h</span><span>2h</span><span>3h</span><span>5h</span>
+        </div>
+      </div>
+
+      <!-- DIFFICULTY -->
+      <div class="field-group">
+        <label class="field-label">Topic Difficulty</label>
+        <div class="diff-grid">
+          <button class="diff-btn" data-diff="beginner" onclick="selectDiff(this)">
+            <span>🌱</span> Beginner
+          </button>
+          <button class="diff-btn" data-diff="intermediate" onclick="selectDiff(this)">
+            <span>⚡</span> Intermediate
+          </button>
+          <button class="diff-btn active" data-diff="advanced" onclick="selectDiff(this)">
+            <span>🔥</span> Advanced
+          </button>
+        </div>
+      </div>
+
+      <!-- GENERATE BUTTON -->
+      <button class="gen-btn" id="generateBtn" onclick="generatePlan()">
+        <span class="btn-text">✨ Generate My Study Plan</span>
+        <span class="btn-loader" id="btnLoader" style="display:none">
+          <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        </span>
+      </button>
+
+      <!-- MOTIVATION TEXT DETECTOR -->
+      <div class="field-group" style="margin-top:20px">
+        <label class="field-label">🤖 AI Mood Detector (type how you feel)</label>
+        <textarea id="moodText" class="text-input" rows="2" placeholder="e.g. I feel really tired and overwhelmed today..." oninput="detectMoodFromText()"></textarea>
+        <div id="detectedMood" class="detected-mood-badge" style="display:none"></div>
+      </div>
+    </section>
+
+    <!-- RIGHT: OUTPUT PANEL -->
+    <section class="card output-card">
+
+      <!-- EMPTY STATE -->
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon">🧠</div>
+        <p>Your personalized study plan will appear here.</p>
+        <p class="empty-hint">Fill in your mood, subject & time to get started.</p>
+      </div>
+
+      <!-- PLAN OUTPUT -->
+      <div id="planOutput" style="display:none">
+        <div class="plan-header">
+          <div>
+            <div class="plan-meta" id="planMeta"></div>
+            <h2 class="plan-title" id="planTitle">Your Study Plan</h2>
+          </div>
+          <div class="plan-actions">
+            <button class="icon-btn" onclick="copyPlan()" title="Copy">📋</button>
+            <button class="icon-btn" onclick="savePlan()" title="Save">💾</button>
+          </div>
+        </div>
+
+        <!-- MOTIVATION BANNER -->
+        <div class="motivation-banner" id="motivationBanner"></div>
+
+        <!-- STUDY TASKS -->
+        <div class="tasks-list" id="tasksList"></div>
+
+        <!-- SUMMARY BAR -->
+        <div class="summary-bar">
+          <div class="sum-item">
+            <span class="sum-val" id="sumStudy">-</span>
+            <span class="sum-label">Study Time</span>
+          </div>
+          <div class="sum-item">
+            <span class="sum-val" id="sumBreaks">-</span>
+            <span class="sum-label">Breaks</span>
+          </div>
+          <div class="sum-item">
+            <span class="sum-val" id="sumTasks">-</span>
+            <span class="sum-label">Tasks</span>
+          </div>
+          <div class="sum-item">
+            <span class="sum-val" id="sumScore">-</span>
+            <span class="sum-label">Focus Score</span>
+          </div>
+        </div>
+
+        <!-- FOCUS TIMER -->
+        <div class="focus-timer-box" id="focusTimerBox" style="display:none">
+          <div class="timer-label">🎯 Focus Mode Active</div>
+          <div class="timer-display" id="timerDisplay">25:00</div>
+          <div class="timer-tip" id="timerTip">Put your phone away. You've got this.</div>
+          <div class="timer-controls">
+            <button class="timer-btn" onclick="pauseTimer()">⏸ Pause</button>
+            <button class="timer-btn danger" onclick="stopTimer()">⏹ Stop</button>
+          </div>
+        </div>
+
+        <!-- START FOCUS -->
+        <button class="focus-btn" onclick="startFocusMode()" id="focusStartBtn">
+          ⚡ Start Focus Mode (Pomodoro)
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <!-- PROGRESS TRACKER SECTION -->
+  <section class="card tracker-section" id="tracker">
+    <div class="card-header">
+      <h2>📊 Progress Tracker</h2>
+      <button class="icon-btn" onclick="clearHistory()">🗑️ Clear</button>
+    </div>
+    <div id="trackerEmpty" class="tracker-empty">No sessions recorded yet. Complete a study plan to see stats!</div>
+    <div id="trackerContent" style="display:none">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon">⏱️</div>
+          <div class="stat-val" id="totalTime">0h</div>
+          <div class="stat-lbl">Total Study Time</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">✅</div>
+          <div class="stat-val" id="totalSessions">0</div>
+          <div class="stat-lbl">Sessions</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🎯</div>
+          <div class="stat-val" id="avgFocus">0%</div>
+          <div class="stat-lbl">Avg Focus Score</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">📚</div>
+          <div class="stat-val" id="topSubject">—</div>
+          <div class="stat-lbl">Top Subject</div>
+        </div>
+      </div>
+      <!-- WEAK TOPIC FINDER -->
+      <div class="weak-topics" id="weakTopics"></div>
+      <!-- SESSION HISTORY -->
+      <div class="session-list" id="sessionList"></div>
+    </div>
+  </section>
+
+  <!-- TOAST -->
+  <div id="toast" class="toast"></div>
+
+  <footer class="footer">
+    <p>⚡ StudyMind AI — Built for Hackathon 2025 · Powered by Claude AI</p>
+  </footer>
+
+  <script src="{{ url_for('static', filename='app.js')}}"></script>
+</body>
+</html>
