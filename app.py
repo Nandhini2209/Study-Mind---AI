@@ -1,203 +1,175 @@
-"""
-StudyMind AI — Python Backend
-Flask server with Anthropic Claude API integration
-"""
-
 import os
 import json
-from flask import Flask, request, jsonify
+import re
+from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
-import anthropic
 from dotenv import load_dotenv
+from anthropic import Anthropic
+
 load_dotenv()
+
 app = Flask(__name__)
 CORS(app)
 
 # Initialize Anthropic client
-client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", ""))
-from flask import Flask, render_template
+anthropic = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+MODEL_NAME = "claude-sonnet-4-20250514"
 
-app = Flask(__name__)
+def get_claude_json(system_prompt, messages):
+    """Helper function to call Claude API and ensure JSON output"""
+    try:
+        response = anthropic.messages.create(
+            model=MODEL_NAME,
+            max_tokens=2048,
+            system=system_prompt,
+            messages=messages
+        )
+        content = response.content[0].text
+        # Clean up possible markdown wrappers
+        content = re.sub(r'```json\s*', '', content)
+        content = re.sub(r'```\s*', '', content)
+        return json.loads(content.strip())
+    except Exception as e:
+        print(f"Error calling Claude API: {e}")
+        return None
 
-@app.route("/")
+@app.route('/')
 def home():
-    return render_template("index.html")
-#if __name__ == "__main__"
-#app.run(debug=True)
-# ─── STUDY PLAN GENERATOR ───────────────────────────────────────────────────
-@app.route("/generate-plan", methods=["POST"])
-def generate_plan():
-    data = request.get_json()
-    mood       = data.get("mood", "normal")
-    subject    = data.get("subject", "General")
-    time_mins  = int(data.get("time", 60))
-    difficulty = data.get("difficulty", "intermediate")
+    return render_template('index.html')
 
-    hours = time_mins // 60
-    mins  = time_mins % 60
-    time_str = ""
-    if hours > 0:
-        time_str += f"{hours} hour{'s' if hours > 1 else ''} "
-    if mins > 0:
-        time_str += f"{mins} minutes"
-    time_str = time_str.strip() or f"{time_mins} minutes"
+@app.route('/auth')
+def auth():
+    return render_template('auth.html')
 
-    prompt = f"""You are StudyMind AI, an expert study planner using cognitive science and the Pomodoro Technique.
-
-Student Details:
-- Mood: {mood}
-- Subject/Topic: {subject}
-- Available Time: {time_str}
-- Difficulty: {difficulty}
-
-Create a personalized study plan. Rules:
-- Use Pomodoro (25min study + 5min break cycles), adjusted for mood
-- Tired → lighter activities (videos, revision, mindmaps)
-- Motivated → deeper activities (hard problems, new concepts)
-- Stressed → small wins + calming breaks
-- Normal → balanced progression
-- Be SPECIFIC about activities (not "study python" but "code 3 small functions using loops")
-
-Return ONLY valid JSON (no markdown, no commentary):
-{{
-  "title": "short descriptive plan title",
-  "motivation": "personalized motivational sentence based on mood and subject",
-  "studyMethod": "primary method (Pomodoro/Active Recall/Spaced Repetition/Practice Problems/Flashcards)",
-  "focusScore": number between 0 and 100,
-  "tasks": [
-    {{
-      "id": 1,
-      "type": "study|break|review",
-      "icon": "single relevant emoji",
-      "activity": "very specific activity description",
-      "duration": duration_in_minutes_as_integer
-    }}
-  ],
-  "tips": ["study tip 1", "study tip 2", "study tip 3"]
-}}"""
-
-    try:
-        message = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=1024,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        raw = message.content[0].text.strip()
-        raw = raw.replace("```json", "").replace("```", "").strip()
-        plan = json.loads(raw)
-        plan["subject"] = subject
-        plan["mood"]    = mood
-        plan["time"]    = time_mins
-        return jsonify({"success": True, "plan": plan})
-
-    except json.JSONDecodeError as e:
-        return jsonify({"success": False, "error": f"JSON parse error: {str(e)}"}), 500
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
-# ─── MOTIVATION GENERATOR ───────────────────────────────────────────────────
-@app.route("/api/motivation", methods=["POST"])
-def get_motivation():
-    data    = request.get_json()
-    mood    = data.get("mood", "normal")
-    subject = data.get("subject", "studying")
-
-    prompt = f"""Generate 3 short, powerful, unique motivational messages for a student who is feeling {mood} about studying {subject}.
-Each message should be 1-2 sentences, genuine, not cliché. 
-Return ONLY a JSON array: ["message1", "message2", "message3"]"""
-
-    try:
-        message = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=300,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        raw = message.content[0].text.strip().replace("```json","").replace("```","").strip()
-        messages = json.loads(raw)
-        return jsonify({"success": True, "messages": messages})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
-# ─── MOOD DETECTOR FROM TEXT ────────────────────────────────────────────────
-@app.route("/api/detect-mood", methods=["POST"])
-def detect_mood():
-    data = request.get_json()
-    text = data.get("text", "")
-
-    prompt = f"""Analyze this student's message and detect their mood for studying.
-Message: "{text}"
-
-Return ONLY valid JSON:
-{{"mood": "motivated|tired|stressed|normal", "confidence": 0.0_to_1.0, "reason": "brief explanation"}}"""
-
-    try:
-        message = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=100,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        raw = message.content[0].text.strip().replace("```json","").replace("```","").strip()
-        result = json.loads(raw)
-        return jsonify({"success": True, **result})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
-# ─── WEAK TOPIC ANALYSIS ────────────────────────────────────────────────────
-@app.route("/api/analyze-weak-topics", methods=["POST"])
-def analyze_weak_topics():
-    data     = request.get_json()
-    sessions = data.get("sessions", [])
-
-    if not sessions:
-        return jsonify({"success": True, "weakTopics": [], "recommendation": "No data yet. Start studying!"})
-
-    sessions_summary = "\n".join([
-        f"- Subject: {s.get('subject')}, Focus: {s.get('focusScore')}%, Duration: {s.get('duration')}min, Mood: {s.get('mood')}"
-        for s in sessions[-10:]
-    ])
-
-    prompt = f"""Analyze these recent study sessions and identify patterns:
-
-{sessions_summary}
-
-Return ONLY valid JSON:
-{{
-  "weakTopics": ["topic1", "topic2"],
-  "strongTopics": ["topic1"],
-  "recommendation": "personalized study recommendation in 2 sentences",
-  "bestStudyTime": "morning|afternoon|evening|night",
-  "suggestedMethod": "method name"
-}}"""
-
-    try:
-        message = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=400,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        raw = message.content[0].text.strip().replace("```json","").replace("```","").strip()
-        result = json.loads(raw)
-        return jsonify({"success": True, **result})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
-# ─── HEALTH CHECK ───────────────────────────────────────────────────────────
-@app.route("/api/health", methods=["GET"])
+@app.route('/api/health', methods=['GET'])
 def health():
-    return jsonify({
-        "status": "ok",
-        "app": "StudyMind AI",
-        "version": "1.0.0",
-        "api_configured": bool(os.environ.get("ANTHROPIC_API_KEY"))
-    })
+    return jsonify({"status": "ok", "app": "StudyMind AI", "version": "1.0.0"})
 
+@app.route('/generate-plan', methods=['POST'])
+def generate_plan():
+    data = request.json
+    if not data:
+        return jsonify({"success": False, "error": "Invalid request"}), 400
+        
+    mood = data.get('mood', 'normal')
+    subject = data.get('subject', 'General Study')
+    time_mins = data.get('time', 60)
+    difficulty = data.get('difficulty', 'intermediate')
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    debug = os.environ.get("FLASK_ENV", "production") == "development"
-    print(f"🚀 StudyMind AI Backend running on port {port}")
-    app.run(host="0.0.0.0", port=port, debug=debug)
+    system_prompt = """You are an expert AI study planner that generates Pomodoro-based study schedules.
+Always return ONLY valid JSON without any markdown or code fences.
+Output JSON structure:
+{
+  "success": true,
+  "plan": {
+    "title": "String title for the plan",
+    "motivation": "A string containing a personalized motivational message",
+    "studyMethod": "Pomodoro",
+    "focusScore": 75,
+    "tasks": [
+      {"id": 1, "type": "study", "icon": "📖", "activity": "Specific task action", "duration": 25},
+      {"id": 2, "type": "break", "icon": "☕", "activity": "Specific break action", "duration": 5}
+    ],
+    "tips": ["tip1", "tip2", "tip3"]
+  }
+}
+
+Rules for Generation:
+- Mood 'tired' -> recommend lighter tasks, videos, revision, mindmaps, shorter sessions.
+- Mood 'motivated' -> recommend hard problems, new concepts, deep dives.
+- Mood 'stressed' -> recommend small achievable wins, calming break activities.
+- Mood 'normal' -> recommend balanced progression.
+- Tasks MUST BE SPECIFIC and actionable (e.g., 'write 3 functions using for loops'). Do not use generic phrases like 'study chapter 1'.
+- Structure tasks using roughly 25min focus and 5min breaks (Pomodoro) that sum up to the total requested time."""
+    
+    user_prompt = f"Plan a study session. Subject: {subject}, Mood: {mood}, Difficulty: {difficulty}, Total Time Available: {time_mins} minutes."
+    
+    result = get_claude_json(system_prompt, [{"role": "user", "content": user_prompt}])
+    if result:
+        return jsonify(result)
+    else:
+        return jsonify({"success": False, "error": "Failed to generate study plan from AI"}), 500
+
+@app.route('/api/motivation', methods=['POST'])
+def motivation():
+    data = request.json
+    if not data:
+        return jsonify({"success": False, "error": "Invalid request"}), 400
+        
+    mood = data.get('mood', 'normal')
+    subject = data.get('subject', 'General Study')
+    
+    system_prompt = """You are an AI generating motivational messages for a student.
+Always return ONLY valid JSON without any markdown or code fences.
+Output JSON structure:
+{
+  "success": true, 
+  "messages": ["msg1", "msg2", "msg3"]
+}
+Rules:
+- Give exactly 3 motivational messages.
+- Make them fresh and highly specific to the given mood and subject.
+- Do NOT use generic quotes."""
+    
+    user_prompt = f"The student is studying {subject} and currently feels {mood}. Generate 3 targeted motivational messages for them."
+    result = get_claude_json(system_prompt, [{"role": "user", "content": user_prompt}])
+    if result:
+        return jsonify(result)
+    return jsonify({"success": False, "error": "Failed to generate motivation"}), 500
+
+@app.route('/api/detect-mood', methods=['POST'])
+def detect_mood():
+    data = request.json
+    if not data:
+        return jsonify({"success": False, "error": "Invalid request"}), 400
+        
+    text = data.get('text', '')
+    
+    system_prompt = """You are an AI that analyzes user text to determine their study mood.
+Always return ONLY valid JSON without any markdown or code fences.
+The mood MUST be exactly one of: 'motivated', 'tired', 'stressed', 'normal'.
+Output JSON structure:
+{
+  "success": true, 
+  "mood": "tired", 
+  "confidence": 0.95, 
+  "reason": "Brief explanation of why this mood was chosen based on the text."
+}"""
+    
+    user_prompt = f"Determine the mood from this text: '{text}'"
+    result = get_claude_json(system_prompt, [{"role": "user", "content": user_prompt}])
+    if result:
+        return jsonify(result)
+    return jsonify({"success": False, "error": "Failed to detect mood"}), 500
+
+@app.route('/api/analyze-weak-topics', methods=['POST'])
+def analyze_weak_topics():
+    data = request.json
+    if not data:
+        return jsonify({"success": False, "error": "Invalid request"}), 400
+        
+    sessions = data.get('sessions', [])
+    
+    system_prompt = """You are an AI that analyzes a student's past study session data to find weak and strong topics, and recommends the best study methods.
+Always return ONLY valid JSON without any markdown or code fences.
+Output JSON structure:
+{
+  "success": true, 
+  "weakTopics": ["Topic 1", "Topic 2"], 
+  "strongTopics": ["Topic A"], 
+  "recommendation": "Detailed actionable advice based on performance.", 
+  "bestStudyTime": "morning/afternoon/evening", 
+  "suggestedMethod": "e.g., Flashcards, Feynman method, etc."
+}"""
+    
+    user_prompt = f"Analyze this past session data: {json.dumps(sessions)}"
+    result = get_claude_json(system_prompt, [{"role": "user", "content": user_prompt}])
+    if result:
+        return jsonify(result)
+    return jsonify({"success": False, "error": "Failed to analyze topics"}), 500
+
+if __name__ == '__main__':
+    # Ensure templates and static folders exist
+    os.makedirs('templates', exist_ok=True)
+    os.makedirs('static', exist_ok=True)
+    app.run(debug=True, port=5000)

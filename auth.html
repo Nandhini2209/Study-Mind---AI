@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StudyMind AI - Auth</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="auth-body">
+    <div class="background-blobs">
+        <div class="blob blob-blue"></div>
+        <div class="blob blob-purple"></div>
+        <div class="blob blob-green"></div>
+    </div>
+
+    <div class="auth-container glass-card fade-in">
+        <div class="auth-showcase">
+            <h1>StudyMind AI</h1>
+            <p>Your Mood-Based Smart Study Planner.</p>
+            <div class="showcase-features">
+                <div class="feature-item"><span>🚀</span> AI Personalized Plans</div>
+                <div class="feature-item"><span>⏱️</span> Smart Pomodoro Timer</div>
+                <div class="feature-item"><span>📊</span> Progress & Weakness Tracking</div>
+            </div>
+        </div>
+
+        <div class="auth-form-panel">
+            <div class="auth-tabs" id="auth-tabs">
+                <button class="auth-tab active" data-target="login-form">Login</button>
+                <button class="auth-tab" data-target="signup-form">Sign Up</button>
+            </div>
+
+            <!-- Login Form -->
+            <form id="login-form" class="auth-form active-form">
+                <h2>Welcome Back</h2>
+                <div class="input-group mt-2">
+                    <label>Email</label>
+                    <input type="email" id="login-email" required placeholder="you@example.com">
+                </div>
+                <div class="input-group password-group mt-2">
+                    <label>Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="login-password" required placeholder="Enter password">
+                        <button type="button" class="toggle-password" tabindex="-1">👁️</button>
+                    </div>
+                    <a href="#" class="forgot-link">Forgot Password?</a>
+                </div>
+                <button type="submit" class="btn-primary w-100 mt-4">Log In</button>
+                <div class="social-login mt-4">
+                    <button type="button" class="btn-social">Google</button>
+                    <button type="button" class="btn-social">GitHub</button>
+                </div>
+            </form>
+
+            <!-- Sign Up Form -->
+            <form id="signup-form" class="auth-form hidden">
+                <h2>Create Account</h2>
+                <div class="form-row mt-2">
+                    <div class="input-group w-100">
+                        <label>First Name</label>
+                        <input type="text" id="signup-fname" required>
+                    </div>
+                    <div class="input-group w-100">
+                        <label>Last Name</label>
+                        <input type="text" id="signup-lname" required>
+                    </div>
+                </div>
+                <div class="input-group mt-2">
+                    <label>Email</label>
+                    <input type="email" id="signup-email" required>
+                </div>
+                <div class="input-group password-group mt-2">
+                    <label>Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="signup-password" required>
+                        <button type="button" class="toggle-password" tabindex="-1">👁️</button>
+                    </div>
+                    <div class="strength-meter mt-2">
+                        <div class="strength-bar" id="strength-bar"></div>
+                        <span class="strength-text" id="strength-text">Weak</span>
+                    </div>
+                </div>
+                <div class="input-group password-group mt-2">
+                    <label>Confirm Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="signup-confirm" required>
+                        <button type="button" class="toggle-password" tabindex="-1">👁️</button>
+                    </div>
+                </div>
+                <div class="checkbox-group mt-2">
+                    <input type="checkbox" id="terms-check" required>
+                    <label for="terms-check">I agree to Terms & Conditions</label>
+                </div>
+                <button type="submit" class="btn-primary w-100 mt-4">Sign Up</button>
+                <div class="social-login mt-4">
+                    <button type="button" class="btn-social">Google</button>
+                    <button type="button" class="btn-social">GitHub</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container"></div>
+    <script src="/static/app.js"></script>
+</body>
+</html>

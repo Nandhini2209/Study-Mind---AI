@@ -1,469 +1,455 @@
-/* ============================================
-   StudyMind AI — Frontend Logic
-   app.js
-   ============================================ */
+document.addEventListener('DOMContentLoaded', () => {
 
-// ─── STATE ───────────────────────────────────
-const state = {
-  mood: null,
-  subject: null,
-  time: 120,
-  difficulty: 'advanced',
-  currentPlan: null,
-  timer: null,
-  timerSeconds: 25 * 60,
-  timerRunning: false,
-  completedTasks: new Set(),
-  sessions: JSON.parse(localStorage.getItem('studymind_sessions') || '[]'),
-  streak: parseInt(localStorage.getItem('studymind_streak') || '0'),
-};
+    const APP_STATE = {
+        user: JSON.parse(localStorage.getItem('study_user')) || null,
+        currentMood: 'normal',
+        sessions: JSON.parse(localStorage.getItem('study_sessions')) || [],
+        currentPlan: null,
+        timerInterval: null,
+        timeLeft: 0,
+        currentTaskIndex: 0,
+        isBreak: false
+    };
 
-const MOOD_EMOJIS = {
-  motivated: '🚀', tired: '😴', stressed: '😟', normal: '😐'
-};
-const MOOD_COLORS = {
-  motivated: '#38bdf8', tired: '#fb923c', stressed: '#f87171', normal: '#94a3b8'
-};
+    // UI Elements - Gen AI Planner
+    const moodOptions = document.querySelectorAll('.mood-option');
+    const freeMoodInput = document.getElementById('free-mood-input');
+    const detectMoodBtn = document.getElementById('detect-mood-btn');
+    const timeSlider = document.getElementById('time-slider');
+    const timeDisplay = document.getElementById('time-display');
+    const generateBtn = document.getElementById('generate-btn');
+    const subjectInput = document.getElementById('subject-input');
+    const difficultySelect = document.getElementById('difficulty-select');
+    
+    // Planner views
+    const planOutput = document.getElementById('plan-output');
+    const motivationList = document.getElementById('motivation-list');
+    const planTitle = document.getElementById('plan-title');
+    const tasksList = document.getElementById('tasks-list');
+    const startTimerBtn = document.getElementById('start-timer-btn');
 
-// ─── INIT ─────────────────────────────────────
-window.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('streakCount').textContent = state.streak;
-  renderTracker();
-  updateTime(document.getElementById('timeSlider'));
+    // Tracker UI Elements
+    const statTime = document.getElementById('stat-time');
+    const statTasks = document.getElementById('stat-tasks');
+    const statScore = document.getElementById('stat-score');
+    const statStreak = document.getElementById('stat-streak');
+    const analyzeBtn = document.getElementById('analyze-topics-btn');
+    const historyList = document.getElementById('session-history-list');
+
+    // Timer UI Elements
+    const focusView = document.getElementById('focus-view');
+    const plannerView = document.getElementById('planner-view');
+    const trackerView = document.getElementById('tracker-view');
+    const timerDisplay = document.getElementById('timer-display');
+    const currentTaskTitle = document.getElementById('current-task-display');
+    const exitTimerBtn = document.getElementById('exit-focus-btn');
+    const playPauseBtn = document.getElementById('timer-play-pause');
+    const skipBtn = document.getElementById('timer-skip');
+
+    // Nav
+    const navHome = document.getElementById('nav-home');
+    const navTracker = document.getElementById('nav-tracker');
+    const navLogout = document.getElementById('nav-logout');
+    const navLogin = document.getElementById('nav-login');
+
+    // Check auth
+    const isAuthPage = document.getElementById('login-form') !== null;
+    
+    if (isAuthPage) {
+        initAuth();
+    } else {
+        if (!APP_STATE.user) {
+            window.location.href = '/auth';
+            return;
+        }
+        navLogin.classList.add('hidden');
+        navLogout.classList.remove('hidden');
+        initPlanner();
+    }
+
+    /* --- TOAST NOTIFICATIONS --- */
+    function showToast(message, type='success') {
+        const container = document.getElementById('toast-container');
+        if(!container) return;
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.innerHTML = `<span>${type === 'error' ? '❌' : '✅'}</span> ${message}`;
+        container.appendChild(toast);
+        setTimeout(() => {
+            toast.style.animation = 'fadeIn 0.3s reverse';
+            setTimeout(() => toast.remove(), 300);
+        }, 4000);
+    }
+
+    /* --- API HELPERS --- */
+    async function apiCall(endpoint, payload) {
+        try {
+            const res = await fetch(`http://127.0.0.1:5000${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if(!data.success) throw new Error(data.error || 'Server error');
+            return data;
+        } catch (e) {
+            showToast(e.message, 'error');
+            return null;
+        }
+    }
+
+    /* --- AUTH PAGE LOGIC --- */
+    function initAuth() {
+        const authTabs = document.querySelectorAll('.auth-tab');
+        const loginForm = document.getElementById('login-form');
+        const signupForm = document.getElementById('signup-form');
+        const strengthBar = document.getElementById('strength-bar');
+        const strengthText = document.getElementById('strength-text');
+        const togglePasswords = document.querySelectorAll('.toggle-password');
+
+        authTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                authTabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                if (tab.dataset.target === 'login-form') {
+                    loginForm.classList.add('active-form');
+                    loginForm.classList.remove('hidden');
+                    signupForm.classList.remove('active-form');
+                    signupForm.classList.add('hidden');
+                } else {
+                    signupForm.classList.add('active-form');
+                    signupForm.classList.remove('hidden');
+                    loginForm.classList.remove('active-form');
+                    loginForm.classList.add('hidden');
+                }
+            });
+        });
+
+        togglePasswords.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const input = e.target.previousElementSibling;
+                if(input.type === 'password') {
+                    input.type = 'text';
+                    btn.textContent = '🙈';
+                } else {
+                    input.type = 'password';
+                    btn.textContent = '👁️';
+                }
+            });
+        });
+
+        // Strength Meter
+        const passInput = document.getElementById('signup-password');
+        if(passInput) {
+            passInput.addEventListener('input', (e) => {
+                const val = e.target.value;
+                let strength = 0;
+                if(val.length > 5) strength += 25;
+                if(val.length > 8) strength += 25;
+                if(/[A-Z]/.test(val)) strength += 25;
+                if(/[0-9]/.test(val) && /[^A-Za-z0-9]/.test(val)) strength += 25;
+
+                strengthBar.style.width = `${Math.min(strength, 100)}%`;
+                if(strength < 50) { strengthBar.style.backgroundColor = 'var(--danger)'; strengthText.textContent = 'Weak'; }
+                else if(strength < 75) { strengthBar.style.backgroundColor = 'var(--warn)'; strengthText.textContent = 'Fair'; }
+                else if(strength < 100) { strengthBar.style.backgroundColor = 'var(--accent)'; strengthText.textContent = 'Good'; }
+                else { strengthBar.style.backgroundColor = 'var(--accent3)'; strengthText.textContent = 'Strong'; }
+            });
+        }
+
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value;
+            localStorage.setItem('study_user', JSON.stringify({ email }));
+            showToast('Login successful!');
+            setTimeout(() => window.location.href = '/', 1000);
+        });
+
+        signupForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const pass = document.getElementById('signup-password').value;
+            const confirm = document.getElementById('signup-confirm').value;
+            if(pass !== confirm) return showToast('Passwords do not match', 'error');
+            const email = document.getElementById('signup-email').value;
+            const fname = document.getElementById('signup-fname').value;
+            localStorage.setItem('study_user', JSON.stringify({ email, fname }));
+            showToast('Account created successfully!');
+            setTimeout(() => window.location.href = '/', 1000);
+        });
+    }
+
+    /* --- PLANNER PAGE LOGIC --- */
+    function initPlanner() {
+        // Nav Switch
+        navHome.addEventListener('click', () => { navHome.classList.add('active'); navTracker.classList.remove('active'); plannerView.classList.remove('hidden'); trackerView.classList.add('hidden'); focusView.classList.add('hidden'); });
+        navTracker.addEventListener('click', () => { navTracker.classList.add('active'); navHome.classList.remove('active'); trackerView.classList.remove('hidden'); plannerView.classList.add('hidden'); focusView.classList.add('hidden'); updateTrackerUI(); });
+        navLogout.addEventListener('click', () => { localStorage.removeItem('study_user'); window.location.href = '/auth'; });
+
+        // Mood Selection
+        moodOptions.forEach(opt => {
+            opt.addEventListener('click', () => {
+                moodOptions.forEach(o => o.classList.remove('active'));
+                opt.classList.add('active');
+                APP_STATE.currentMood = opt.dataset.mood;
+            });
+        });
+
+        timeSlider.addEventListener('input', (e) => timeDisplay.textContent = e.target.value);
+
+        // Auto Detect Mood
+        detectMoodBtn.addEventListener('click', async () => {
+            const text = freeMoodInput.value.trim();
+            if(!text) return showToast('Please enter how you feel first', 'error');
+            
+            detectMoodBtn.textContent = 'Detecting...';
+            detectMoodBtn.disabled = true;
+            const data = await apiCall('/api/detect-mood', { text });
+            detectMoodBtn.textContent = 'Auto Detect';
+            detectMoodBtn.disabled = false;
+
+            if(data && data.mood) {
+                APP_STATE.currentMood = data.mood;
+                moodOptions.forEach(o => {
+                    o.classList.remove('active');
+                    if(o.dataset.mood === data.mood) o.classList.add('active');
+                });
+                showToast(`Mood detected: ${data.mood} (Confidence: ${Math.round(data.confidence*100)}%)`);
+            }
+        });
+
+        // Generate Plan
+        generateBtn.addEventListener('click', async () => {
+            const subject = subjectInput.value.trim();
+            if(!subject) return showToast('Please enter a subject', 'error');
+
+            const btnText = generateBtn.querySelector('.btn-text');
+            const loader = document.getElementById('generate-loading');
+            
+            btnText.classList.add('hidden');
+            loader.classList.remove('hidden');
+            generateBtn.disabled = true;
+
+            const payload = {
+                mood: APP_STATE.currentMood,
+                subject,
+                time: parseInt(timeSlider.value),
+                difficulty: difficultySelect.value
+            };
+
+            // Run motivation and plan generation 
+            const [planRes, motRes] = await Promise.all([
+                apiCall('/generate-plan', payload),
+                apiCall('/api/motivation', payload)
+            ]);
+
+            btnText.classList.remove('hidden');
+            loader.classList.add('hidden');
+            generateBtn.disabled = false;
+
+            if(planRes && planRes.plan) {
+                APP_STATE.currentPlan = planRes.plan;
+                APP_STATE.currentPlan.subject = subject;
+                renderPlan(planRes.plan, motRes ? motRes.messages : []);
+                showToast('Study Plan Generated!');
+                planOutput.scrollIntoView({ behavior: 'smooth' });
+            }
+        });
+        
+        // Start Timer
+        startTimerBtn.addEventListener('click', () => {
+            if(!APP_STATE.currentPlan || !APP_STATE.currentPlan.tasks || APP_STATE.currentPlan.tasks.length === 0) return;
+            APP_STATE.currentTaskIndex = 0;
+            plannerView.classList.add('hidden');
+            focusView.classList.remove('hidden');
+            setupTimerForCurrentTask();
+        });
+
+        // Timer Controls
+        exitTimerBtn.addEventListener('click', () => {
+            clearInterval(APP_STATE.timerInterval);
+            focusView.classList.add('hidden');
+            plannerView.classList.remove('hidden');
+        });
+
+        playPauseBtn.addEventListener('click', () => {
+            if(APP_STATE.timerInterval) {
+                clearInterval(APP_STATE.timerInterval);
+                APP_STATE.timerInterval = null;
+                playPauseBtn.textContent = 'Resume';
+            } else {
+                startTimer();
+                playPauseBtn.textContent = 'Pause';
+            }
+        });
+
+        skipBtn.addEventListener('click', nextTask);
+
+        // Tracker Handlers
+        analyzeBtn.addEventListener('click', async () => {
+            if(APP_STATE.sessions.length === 0) return showToast('No sessions to analyze yet', 'error');
+            analyzeBtn.textContent = 'Analyzing...';
+            analyzeBtn.disabled = true;
+            
+            const data = await apiCall('/api/analyze-weak-topics', { sessions: APP_STATE.sessions });
+            
+            analyzeBtn.textContent = 'Analyze My Performance';
+            analyzeBtn.disabled = false;
+
+            if(data) {
+                document.getElementById('ai-analysis-output').classList.remove('hidden');
+                document.getElementById('analysis-rec').textContent = data.recommendation || '';
+                document.getElementById('analysis-weak').textContent = (data.weakTopics || []).join(', ');
+                document.getElementById('analysis-strong').textContent = (data.strongTopics || []).join(', ');
+                document.getElementById('analysis-method').textContent = data.suggestedMethod || '';
+                document.getElementById('analysis-time').textContent = data.bestStudyTime || '';
+            }
+        });
+    }
+
+    function renderPlan(plan, messages) {
+        planOutput.classList.remove('hidden');
+        planTitle.textContent = plan.title || 'Your Custom Study Plan';
+        
+        motivationList.innerHTML = '';
+        if(messages && messages.length > 0) {
+            messages.forEach(msg => {
+                const li = document.createElement('li');
+                li.textContent = msg;
+                motivationList.appendChild(li);
+            });
+        } else if (plan.motivation) {
+            const li = document.createElement('li');
+            li.textContent = plan.motivation;
+            motivationList.appendChild(li);
+        }
+
+        tasksList.innerHTML = '';
+        if (plan.tasks && plan.tasks.length > 0) {
+            plan.tasks.forEach(task => {
+                const div = document.createElement('div');
+                div.className = 'task-item';
+                div.innerHTML = `
+                    <div class="task-icon">${task.icon || (task.type === 'study' ? '📖' : '☕')}</div>
+                    <div class="task-details">
+                        <strong>${task.activity}</strong>
+                        <span class="task-duration">${task.duration} mins ${task.type === 'break' ? '(Break)' : '(Focus)'}</span>
+                    </div>
+                `;
+                tasksList.appendChild(div);
+            });
+        } else {
+            tasksList.innerHTML = '<p>No specific tasks generated. Start focusing anyway!</p>';
+        }
+    }
+
+    function setupTimerForCurrentTask() {
+        if(APP_STATE.currentTaskIndex >= APP_STATE.currentPlan.tasks.length) {
+            finishSession();
+            return;
+        }
+        
+        const task = APP_STATE.currentPlan.tasks[APP_STATE.currentTaskIndex];
+        currentTaskTitle.textContent = (task.icon || '') + " " + task.activity;
+        APP_STATE.timeLeft = task.duration * 60;
+        APP_STATE.isBreak = task.type === 'break';
+        
+        timerDisplay.style.background = APP_STATE.isBreak ? 'linear-gradient(135deg, var(--accent3), var(--accent))' : 'linear-gradient(135deg, var(--warn), var(--danger))';
+        if(!APP_STATE.isBreak) timerDisplay.style.background = 'linear-gradient(135deg, var(--accent), var(--accent2))';
+        timerDisplay.style.webkitBackgroundClip = 'text';
+        timerDisplay.style.webkitTextFillColor = 'transparent';
+
+        const tips = APP_STATE.currentPlan.tips || ['Keep your phone away during the session.', 'Stay hydrated!', 'Focus on one thing at a time.', 'You are doing great!'];
+        document.getElementById('distraction-tip-text').textContent = tips[Math.floor(Math.random() * tips.length)];
+
+        updateTimerDisplay();
+        playPauseBtn.textContent = 'Pause';
+        startTimer();
+    }
+
+    function startTimer() {
+        clearInterval(APP_STATE.timerInterval);
+        APP_STATE.timerInterval = setInterval(() => {
+            APP_STATE.timeLeft--;
+            updateTimerDisplay();
+            if(APP_STATE.timeLeft <= 0) {
+                clearInterval(APP_STATE.timerInterval);
+                showToast('Interval finished!');
+                var audio = new Audio('https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3');
+                audio.play().catch(e => console.log('Audio playback prevented by browser:', e));
+                nextTask();
+            }
+        }, 1000);
+    }
+
+    function nextTask() {
+        APP_STATE.currentTaskIndex++;
+        setupTimerForCurrentTask();
+    }
+
+    function updateTimerDisplay() {
+        const m = Math.floor(APP_STATE.timeLeft / 60);
+        const s = APP_STATE.timeLeft % 60;
+        timerDisplay.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    }
+
+    function finishSession() {
+        clearInterval(APP_STATE.timerInterval);
+        showToast('Study Session Complete! 🎉');
+        
+        // Save to history
+        const sessionRecord = {
+            date: new Date().toISOString(),
+            subject: APP_STATE.currentPlan.subject,
+            mood: APP_STATE.currentMood,
+            score: APP_STATE.currentPlan.focusScore || 85,
+            tasksCompleted: APP_STATE.currentPlan.tasks.filter(t => t.type==='study').length,
+            timeSpent: APP_STATE.currentPlan.tasks.reduce((acc, t) => acc + (t.type==='study' ? t.duration : 0), 0)
+        };
+        
+        APP_STATE.sessions.push(sessionRecord);
+        localStorage.setItem('study_sessions', JSON.stringify(APP_STATE.sessions));
+        
+        focusView.classList.add('hidden');
+        trackerView.classList.remove('hidden');
+        navHome.classList.remove('active');
+        navTracker.classList.add('active');
+        updateTrackerUI();
+    }
+
+    function updateTrackerUI() {
+        if(APP_STATE.sessions.length === 0) return;
+        
+        // Calculate totals for today
+        const today = new Date().toDateString();
+        const todaysSessions = APP_STATE.sessions.filter(s => new Date(s.date).toDateString() === today);
+        
+        const totalTime = todaysSessions.reduce((acc, s) => acc + s.timeSpent, 0);
+        const totalTasks = todaysSessions.reduce((acc, s) => acc + s.tasksCompleted, 0);
+        const avgScore = todaysSessions.length ? Math.round(todaysSessions.reduce((acc, s) => acc + s.score, 0) / todaysSessions.length) : 0;
+        
+        statTime.textContent = totalTime + 'm';
+        statTasks.textContent = totalTasks;
+        statScore.textContent = avgScore + '%';
+        statStreak.textContent = APP_STATE.sessions.length > 0 ? '1 🔥' : '0 🔥';
+
+        // Render History
+        historyList.innerHTML = '';
+        [...APP_STATE.sessions].reverse().slice(0, 10).forEach(s => {
+            const div = document.createElement('div');
+            div.className = 'history-item fade-in';
+            const emj = s.mood === 'motivated' ? '😊' : s.mood === 'tired' ? '😴' : s.mood === 'stressed' ? '😟' : '😐';
+            div.innerHTML = `
+                <div class="history-item-left">
+                    <span class="history-emoji">${emj}</span>
+                    <div class="history-details">
+                        <strong>${s.subject}</strong>
+                        <p style="font-size:0.8rem; color:var(--muted)">${new Date(s.date).toLocaleDateString()}</p>
+                    </div>
+                </div>
+                <div class="history-score">${s.score}% Focus</div>
+            `;
+            historyList.appendChild(div);
+        });
+    }
+
 });
-
-// ─── MOOD ─────────────────────────────────────
-function selectMood(btn) {
-  document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  state.mood = btn.dataset.mood;
-}
-
-// ─── SUBJECT CHIP ─────────────────────────────
-function selectChip(chip, type) {
-  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-  chip.classList.add('active');
-  state.subject = chip.textContent;
-  document.getElementById('customSubject').value = '';
-}
-
-// ─── TIME SLIDER ──────────────────────────────
-function updateTime(slider) {
-  const val = parseInt(slider.value);
-  state.time = val;
-  const h = Math.floor(val / 60);
-  const m = val % 60;
-  document.getElementById('timeValue').textContent =
-    h > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : `${m}m`;
-}
-
-// ─── DIFFICULTY ───────────────────────────────
-function selectDiff(btn) {
-  document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  state.difficulty = btn.dataset.diff;
-}
-
-// ─── MOOD DETECTION FROM TEXT ─────────────────
-function detectMoodFromText() {
-  const text = document.getElementById('moodText').value.toLowerCase();
-  const badge = document.getElementById('detectedMood');
-  if (text.length < 10) { badge.style.display = 'none'; return; }
-
-  const rules = [
-    { keywords: ['tired','sleepy','exhausted','fatigue','sleepy','drained'], mood: 'tired' },
-    { keywords: ['stressed','anxious','worried','overwhelmed','nervous','panic'], mood: 'stressed' },
-    { keywords: ['motivated','excited','ready','energetic','pumped','great','amazing'], mood: 'motivated' },
-  ];
-
-  let detected = 'normal';
-  for (const rule of rules) {
-    if (rule.keywords.some(k => text.includes(k))) { detected = rule.mood; break; }
-  }
-
-  badge.style.display = 'block';
-  badge.textContent = `🤖 AI Detected Mood: ${MOOD_EMOJIS[detected]} ${capitalize(detected)}`;
-
-  // Auto-select mood
-  const btn = document.querySelector(`[data-mood="${detected}"]`);
-  if (btn) selectMood(btn);
-}
-
-// ─── GENERATE PLAN ────────────────────────────
-async function generatePlan() {
-  const subject = document.getElementById('customSubject').value.trim() || state.subject;
-  if (!state.mood) return showToast('⚠️ Please select your mood first!');
-  if (!subject) return showToast('⚠️ Please select or enter a subject!');
-
-  const btn = document.getElementById('generateBtn');
-  btn.disabled = true;
-  document.querySelector('.btn-text').style.display = 'none';
-  document.getElementById('btnLoader').style.display = 'flex';
-
-  document.getElementById('emptyState').style.display = 'none';
-  document.getElementById('planOutput').style.display = 'none';
-
-  const h = Math.floor(state.time / 60);
-  const m = state.time % 60;
-  const timeStr = h > 0 ? `${h} hour${h>1?'s':''} ${m>0 ? m+' minutes':''}` : `${m} minutes`;
-
-  const prompt = `You are StudyMind AI, a smart study planner. Generate a detailed, personalized study plan.
-
-Student Details:
-- Current Mood: ${state.mood}
-- Subject/Topic: ${subject}
-- Available Time: ${timeStr}
-- Difficulty Level: ${state.difficulty}
-
-Rules:
-- Use Pomodoro technique (study + break intervals)
-- Adapt intensity to mood (tired = lighter, motivated = harder)
-- Be specific about activities (not just "study")
-- Add motivational context
-
-Return ONLY a valid JSON object (no markdown, no extra text):
-{
-  "title": "short plan title",
-  "motivation": "one motivational sentence tailored to their mood",
-  "tasks": [
-    {
-      "id": 1,
-      "type": "study|break|review",
-      "icon": "single emoji",
-      "activity": "specific activity description",
-      "duration": number_in_minutes
-    }
-  ],
-  "tips": ["tip1", "tip2"],
-  "focusScore": number_0_to_100,
-  "studyMethod": "Flashcards|Pomodoro|Active Recall|Spaced Repetition|Practice Problems"
-}`;
-
-  try {
-    const plan = generateFallbackPlan(state.mood, subject, state.time, state.difficulty);
-    plan.subject = subject;
-    plan.mood = state.mood;
-    plan.time = state.time;
-    state.currentPlan = plan;
-    renderPlan(plan);
-
-  } catch (err) {
-    console.error('API Error:', err);
-    // Fallback plan if API not connected
-    const fallback = generateFallbackPlan(state.mood, subject, state.time, state.difficulty);
-    state.currentPlan = fallback;
-    renderPlan(fallback);
-  }
-
-  btn.disabled = false;
-  document.querySelector('.btn-text').style.display = 'inline';
-  document.getElementById('btnLoader').style.display = 'none';
-}
-
-// ─── FALLBACK PLAN GENERATOR ──────────────────
-function generateFallbackPlan(mood, subject, totalMinutes, difficulty) {
-  const plans = {
-    motivated: [
-      { type:'study', icon:'📖', activity:`Deep dive into ${subject} core concepts`, duration:30 },
-      { type:'break', icon:'☕', activity:'Short break – water & stretch', duration:5 },
-      { type:'study', icon:'✏️', activity:`Practice problems on ${subject}`, duration:25 },
-      { type:'break', icon:'🧘', activity:'Mindful break – breathe', duration:5 },
-      { type:'study', icon:'🧪', activity:`Apply knowledge – mini project/quiz`, duration:30 },
-      { type:'review', icon:'🔁', activity:'Review & note key takeaways', duration:10 },
-    ],
-    tired: [
-      { type:'study', icon:'🎥', activity:`Watch a short video on ${subject}`, duration:15 },
-      { type:'break', icon:'💧', activity:'Break – drink water, relax', duration:10 },
-      { type:'study', icon:'📖', activity:`Skim through key notes on ${subject}`, duration:20 },
-      { type:'break', icon:'🚶', activity:'Walk for 5 minutes', duration:5 },
-      { type:'review', icon:'🔁', activity:'Quick summary in your own words', duration:10 },
-    ],
-    stressed: [
-      { type:'study', icon:'🧘', activity:'Deep breath exercise (2 min), then start', duration:5 },
-      { type:'study', icon:'📝', activity:`Break ${subject} into tiny pieces – start with easiest`, duration:20 },
-      { type:'break', icon:'☕', activity:'Relaxing break – do NOT check social media', duration:10 },
-      { type:'study', icon:'✏️', activity:`Write down 3 things you understood about ${subject}`, duration:20 },
-      { type:'review', icon:'🌟', activity:'Celebrate progress – you did great!', duration:5 },
-    ],
-    normal: [
-      { type:'study', icon:'📖', activity:`Study ${subject} systematically`, duration:25 },
-      { type:'break', icon:'☕', activity:'Pomodoro break', duration:5 },
-      { type:'study', icon:'✏️', activity:`Practice ${subject} exercises`, duration:25 },
-      { type:'break', icon:'🚶', activity:'Short walk break', duration:5 },
-      { type:'study', icon:'🔁', activity:`Review what you learned about ${subject}`, duration:20 },
-    ]
-  };
-
-  const motivations = {
-    motivated: `You're in the zone today — let's make it count! Every minute of focused study brings you closer to mastery.`,
-    tired: `Even tired minds can absorb new things. Small sessions today are better than nothing — you've got this!`,
-    stressed: `Take it one step at a time. Stress means you care — channel that energy into one small win right now.`,
-    normal: `Consistent effort beats occasional brilliance. Let's build that knowledge brick by brick today.`
-  };
-
-  const tasks = plans[mood] || plans.normal;
-  // trim to fit totalMinutes roughly
-  let acc = 0;
-  const trimmed = [];
-  for (const t of tasks) {
-    if (acc + t.duration > totalMinutes + 5) break;
-    trimmed.push({ ...t, id: trimmed.length + 1 });
-    acc += t.duration;
-  }
-
-  return {
-    title: `${capitalize(mood)} Mode – ${subject} Plan`,
-    motivation: motivations[mood],
-    tasks: trimmed,
-    focusScore: mood === 'motivated' ? 90 : mood === 'tired' ? 60 : mood === 'stressed' ? 65 : 75,
-    studyMethod: mood === 'motivated' ? 'Active Recall' : mood === 'tired' ? 'Spaced Repetition' : 'Pomodoro',
-    subject, mood, time: totalMinutes
-  };
-}
-
-// ─── RENDER PLAN ──────────────────────────────
-function renderPlan(plan) {
-  document.getElementById('planOutput').style.display = 'block';
-  document.getElementById('emptyState').style.display = 'none';
-
-  document.getElementById('planMeta').textContent =
-    `${MOOD_EMOJIS[plan.mood]} ${capitalize(plan.mood)} Mode  •  ${plan.subject}  •  ${plan.studyMethod || 'Smart Study'}`;
-
-  document.getElementById('planTitle').textContent = plan.title;
-  document.getElementById('motivationBanner').textContent = `"${plan.motivation}"`;
-
-  // Render tasks
-  const container = document.getElementById('tasksList');
-  container.innerHTML = '';
-  state.completedTasks.clear();
-
-  plan.tasks.forEach((task, i) => {
-    const isBreak = task.type === 'break';
-    const div = document.createElement('div');
-    div.className = `task-item ${isBreak ? 'break-item' : ''}`;
-    div.id = `task-${task.id}`;
-    div.style.animationDelay = `${i * 0.08}s`;
-    div.innerHTML = `
-      <div class="task-check" id="check-${task.id}" onclick="toggleTask(${task.id})"></div>
-      <span class="task-num">${String(task.id).padStart(2,'0')}</span>
-      <span class="task-icon">${task.icon}</span>
-      <span class="task-text">${task.activity}</span>
-      <span class="task-time ${isBreak ? 'break' : ''}">${task.duration}m</span>
-    `;
-    container.appendChild(div);
-  });
-
-  // Summary
-  const studyTasks = plan.tasks.filter(t => t.type !== 'break');
-  const breakTasks = plan.tasks.filter(t => t.type === 'break');
-  const studyMin = studyTasks.reduce((a, t) => a + t.duration, 0);
-  document.getElementById('sumStudy').textContent = studyMin >= 60
-    ? `${Math.floor(studyMin/60)}h ${studyMin%60}m` : `${studyMin}m`;
-  document.getElementById('sumBreaks').textContent = breakTasks.length;
-  document.getElementById('sumTasks').textContent = studyTasks.length;
-  document.getElementById('sumScore').textContent = (plan.focusScore || 75) + '%';
-
-  document.getElementById('focusStartBtn').style.display = 'block';
-  document.getElementById('focusTimerBox').style.display = 'none';
-
-  // Auto-save session
-  saveSession(plan);
-}
-
-// ─── TASK TOGGLE ──────────────────────────────
-function toggleTask(id) {
-  const check = document.getElementById(`check-${id}`);
-  const row = document.getElementById(`task-${id}`);
-  if (state.completedTasks.has(id)) {
-    state.completedTasks.delete(id);
-    check.classList.remove('done');
-    check.textContent = '';
-    row.classList.remove('completed');
-  } else {
-    state.completedTasks.add(id);
-    check.classList.add('done');
-    check.textContent = '✓';
-    row.classList.add('completed');
-    showToast('✅ Task completed! Keep going!');
-  }
-}
-
-// ─── FOCUS TIMER ──────────────────────────────
-function startFocusMode() {
-  document.getElementById('focusTimerBox').style.display = 'block';
-  document.getElementById('focusStartBtn').style.display = 'none';
-  state.timerSeconds = 25 * 60;
-  state.timerRunning = true;
-  updateTimerDisplay();
-  state.timer = setInterval(() => {
-    if (!state.timerRunning) return;
-    state.timerSeconds--;
-    updateTimerDisplay();
-    if (state.timerSeconds <= 0) {
-      clearInterval(state.timer);
-      showToast('🎉 25-minute session complete! Take a break!');
-      document.getElementById('timerTip').textContent = '⏸ Take a 5-minute break. You earned it!';
-    }
-  }, 1000);
-
-  const tips = [
-    'Put your phone face-down for the next 25 minutes.',
-    'Close all unnecessary browser tabs.',
-    'One task at a time — you\'re focused!',
-    'Every expert was once a beginner. Keep going.',
-    'The next 25 minutes will shape your future.',
-  ];
-  document.getElementById('timerTip').textContent = tips[Math.floor(Math.random() * tips.length)];
-}
-
-function pauseTimer() {
-  state.timerRunning = !state.timerRunning;
-  document.querySelector('.timer-btn').textContent = state.timerRunning ? '⏸ Pause' : '▶️ Resume';
-}
-
-function stopTimer() {
-  clearInterval(state.timer);
-  state.timerRunning = false;
-  document.getElementById('focusTimerBox').style.display = 'none';
-  document.getElementById('focusStartBtn').style.display = 'block';
-}
-
-function updateTimerDisplay() {
-  const m = Math.floor(state.timerSeconds / 60);
-  const s = state.timerSeconds % 60;
-  document.getElementById('timerDisplay').textContent =
-    `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-}
-
-// ─── COPY / SAVE PLAN ─────────────────────────
-function copyPlan() {
-  if (!state.currentPlan) return;
-  const lines = [`📚 ${state.currentPlan.title}\n`,
-    `"${state.currentPlan.motivation}"\n`,
-    ...state.currentPlan.tasks.map(t => `${t.icon} ${String(t.id).padStart(2,'0')}. [${t.duration}m] ${t.activity}`)
-  ].join('\n');
-  navigator.clipboard.writeText(lines).then(() => showToast('📋 Plan copied to clipboard!'));
-}
-
-function savePlan() {
-  if (!state.currentPlan) return;
-  const json = JSON.stringify(state.currentPlan, null, 2);
-  const blob = new Blob([json], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `studyplan_${state.currentPlan.subject}_${Date.now()}.json`;
-  a.click();
-  showToast('💾 Plan saved!');
-}
-
-// ─── SESSION TRACKING ─────────────────────────
-function saveSession(plan) {
-  const session = {
-    id: Date.now(),
-    date: new Date().toLocaleDateString(),
-    time: new Date().toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }),
-    subject: plan.subject,
-    mood: plan.mood,
-    duration: plan.time,
-    focusScore: plan.focusScore || 75,
-    tasks: plan.tasks.length,
-  };
-  state.sessions.unshift(session);
-  if (state.sessions.length > 20) state.sessions = state.sessions.slice(0, 20);
-  localStorage.setItem('studymind_sessions', JSON.stringify(state.sessions));
-  updateStreak();
-  renderTracker();
-}
-
-function updateStreak() {
-  const today = new Date().toLocaleDateString();
-  const lastDate = localStorage.getItem('studymind_last_date');
-  if (lastDate !== today) {
-    state.streak++;
-    localStorage.setItem('studymind_streak', state.streak);
-    localStorage.setItem('studymind_last_date', today);
-    document.getElementById('streakCount').textContent = state.streak;
-  }
-}
-
-function clearHistory() {
-  state.sessions = [];
-  state.streak = 0;
-  localStorage.removeItem('studymind_sessions');
-  localStorage.removeItem('studymind_streak');
-  localStorage.removeItem('studymind_last_date');
-  document.getElementById('streakCount').textContent = 0;
-  renderTracker();
-  showToast('🗑️ History cleared!');
-}
-
-function renderTracker() {
-  const s = state.sessions;
-  if (s.length === 0) {
-    document.getElementById('trackerEmpty').style.display = 'block';
-    document.getElementById('trackerContent').style.display = 'none';
-    return;
-  }
-
-  document.getElementById('trackerEmpty').style.display = 'none';
-  document.getElementById('trackerContent').style.display = 'block';
-
-  // Stats
-  const totalMin = s.reduce((a, x) => a + (x.duration || 0), 0);
-  const avgFocus = Math.round(s.reduce((a, x) => a + (x.focusScore || 75), 0) / s.length);
-  const subjectCounts = {};
-  s.forEach(x => { subjectCounts[x.subject] = (subjectCounts[x.subject] || 0) + 1; });
-  const topSubject = Object.entries(subjectCounts).sort((a,b) => b[1]-a[1])[0]?.[0] || '—';
-
-  document.getElementById('totalTime').textContent =
-    totalMin >= 60 ? `${Math.floor(totalMin/60)}h ${totalMin%60}m` : `${totalMin}m`;
-  document.getElementById('totalSessions').textContent = s.length;
-  document.getElementById('avgFocus').textContent = avgFocus + '%';
-  document.getElementById('topSubject').textContent = topSubject;
-
-  // Weak topics: subjects with low avg focus
-  const weakMap = {};
-  s.forEach(x => {
-    if (!weakMap[x.subject]) weakMap[x.subject] = [];
-    weakMap[x.subject].push(x.focusScore || 75);
-  });
-  const weak = Object.entries(weakMap)
-    .map(([sub, scores]) => ({ sub, avg: Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) }))
-    .filter(x => x.avg < 70)
-    .slice(0, 4);
-
-  const weakEl = document.getElementById('weakTopics');
-  if (weak.length > 0) {
-    weakEl.innerHTML = `
-      <div class="weak-topic-title">⚠️ Weak Areas – Needs More Practice</div>
-      <div class="weak-list">${weak.map(w => `<span class="weak-tag">📌 ${w.sub} (${w.avg}% focus)</span>`).join('')}</div>
-    `;
-  } else {
-    weakEl.innerHTML = `<div class="weak-topic-title" style="color:var(--accent3)">✅ No weak areas detected! Great focus across all subjects.</div>`;
-  }
-
-  // Session list
-  const listEl = document.getElementById('sessionList');
-  listEl.innerHTML = s.slice(0, 8).map(x => `
-    <div class="session-item">
-      <span class="session-mood">${MOOD_EMOJIS[x.mood] || '😐'}</span>
-      <div class="session-info">
-        <div class="session-subject">${x.subject}</div>
-        <div class="session-time">${x.date} at ${x.time} • ${x.duration}min • ${x.tasks} tasks</div>
-      </div>
-      <span class="session-score">${x.focusScore}% focus</span>
-    </div>
-  `).join('');
-}
-
-// ─── HELPERS ──────────────────────────────────
-function capitalize(str) {
-  return str ? str.charAt(0).toUpperCase() + str.slice(1) : '';
-}
-
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2800);
-}

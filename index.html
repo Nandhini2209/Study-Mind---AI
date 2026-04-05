@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StudyMind AI - Smart Study Planner</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="background-blobs">
+        <div class="blob blob-blue"></div>
+        <div class="blob blob-purple"></div>
+        <div class="blob blob-green"></div>
+    </div>
+
+    <!-- Sticky Navbar -->
+    <nav class="navbar">
+        <div class="nav-brand">
+            <span class="logo-emoji">🧠</span>
+            <h1>StudyMind AI</h1>
+        </div>
+        <div class="nav-links" id="nav-links">
+            <button id="nav-home" class="nav-btn active">Planner</button>
+            <button id="nav-tracker" class="nav-btn">Progress Tracker</button>
+            <button id="nav-logout" class="btn-outline hidden">Logout</button>
+            <button id="nav-login" class="btn-outline">Login / Sign Up</button>
+        </div>
+    </nav>
+
+    <!-- Main Content Container -->
+    <main class="container">
+        
+        <!-- Planner View -->
+        <section id="planner-view" class="view-section active">
+            <!-- Input Section -->
+            <div class="card glass-card fade-in">
+                <h2>1. How are you feeling?</h2>
+                
+                <div class="free-text-mood">
+                    <input type="text" id="free-mood-input" placeholder="E.g., I feel super tired today...">
+                    <button id="detect-mood-btn" class="btn-secondary">Auto Detect</button>
+                </div>
+                
+                <div class="mood-selector" id="mood-selector">
+                    <div class="mood-option" data-mood="motivated">
+                        <span class="emoji">😊</span>
+                        <span class="label">Motivated</span>
+                    </div>
+                    <div class="mood-option" data-mood="normal">
+                        <span class="emoji">😐</span>
+                        <span class="label">Normal</span>
+                    </div>
+                    <div class="mood-option" data-mood="tired">
+                        <span class="emoji">😴</span>
+                        <span class="label">Tired</span>
+                    </div>
+                    <div class="mood-option" data-mood="stressed">
+                        <span class="emoji">😟</span>
+                        <span class="label">Stressed</span>
+                    </div>
+                </div>
+
+                <h2 class="mt-4">2. Study Details</h2>
+                <div class="study-inputs">
+                    <div class="input-group">
+                        <label>Subject / Topic</label>
+                        <input type="text" id="subject-input" placeholder="e.g., Python Loops" required>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label>Available Time: <span id="time-display">60</span> mins</label>
+                        <input type="range" id="time-slider" min="15" max="240" step="15" value="60">
+                    </div>
+                    
+                    <div class="input-group">
+                        <label>Difficulty</label>
+                        <select id="difficulty-select">
+                            <option value="beginner">Beginner</option>
+                            <option value="intermediate" selected>Intermediate</option>
+                            <option value="advanced">Advanced</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button id="generate-btn" class="btn-primary mt-4 w-100">
+                    <span class="btn-text">Generate Study Plan</span>
+                    <div class="loading-dots hidden" id="generate-loading">
+                        <span></span><span></span><span></span>
+                    </div>
+                </button>
+            </div>
+
+            <!-- Output Section -->
+            <div id="plan-output" class="hidden mt-4">
+                <div class="card glass-card motivation-board fade-in">
+                    <h3>AI Motivation</h3>
+                    <ul id="motivation-list" class="motivation-list">
+                    </ul>
+                </div>
+
+                <div class="plan-header mt-4 fade-in">
+                    <h2 id="plan-title">Your Custom Study Plan</h2>
+                    <button id="start-timer-btn" class="btn-primary">Start Focus Session</button>
+                </div>
+
+                <div class="tasks-container mt-4" id="tasks-list">
+                    <!-- Tasks injected here via JS -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Timer / Focus Mode View -->
+        <section id="focus-view" class="view-section hidden">
+            <div class="card glass-card text-center timer-card fade-in">
+                <button id="exit-focus-btn" class="btn-outline mb-4">Back to Plan</button>
+                <h2 id="current-task-display">Focusing...</h2>
+                <div class="timer-display" id="timer-display">
+                    25:00
+                </div>
+                <div class="timer-controls mt-4">
+                    <button id="timer-play-pause" class="btn-primary">Pause</button>
+                    <button id="timer-skip" class="btn-secondary">Skip Step</button>
+                </div>
+                <div class="distraction-tips mt-4">
+                    <p>💡 Tip: <span id="distraction-tip-text">Keep your phone away during the session.</span></p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Progress Tracker View -->
+        <section id="tracker-view" class="view-section hidden">
+            <div class="card glass-card fade-in">
+                <h2>Your Progress Hub</h2>
+                
+                <div class="stats-grid mt-4">
+                    <div class="stat-box">
+                        <div class="stat-value" id="stat-time">0m</div>
+                        <div class="stat-label">Today's Study Time</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="stat-tasks">0</div>
+                        <div class="stat-label">Tasks Completed</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="stat-score">0%</div>
+                        <div class="stat-label">Focus Score</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="stat-streak">0 🔥</div>
+                        <div class="stat-label">Streak Count</div>
+                    </div>
+                </div>
+
+                <h3 class="mt-4">Weak Topics Analysis (AI)</h3>
+                <button id="analyze-topics-btn" class="btn-secondary mb-2 mt-2">Analyze My Performance</button>
+                <div id="ai-analysis-output" class="analysis-box hidden mt-2">
+                    <div class="motivation-board">
+                        <h4 style="color:var(--accent)">Recommendation</h4>
+                        <p id="analysis-rec"></p>
+                        <hr style="border-color:var(--border); margin: 10px 0;">
+                        <p><strong>Weak Topics:</strong> <span id="analysis-weak"></span></p>
+                        <p><strong>Strong Topics:</strong> <span id="analysis-strong"></span></p>
+                        <p><strong>Suggested Method:</strong> <span id="analysis-method"></span></p>
+                        <p><strong>Best Study Time:</strong> <span id="analysis-time"></span></p>
+                    </div>
+                </div>
+
+                <h3 class="mt-4">Session History</h3>
+                <div id="session-history-list" class="history-list mt-2">
+                    <!-- History injected here -->
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container"></div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
