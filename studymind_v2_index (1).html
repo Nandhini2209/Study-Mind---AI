@@ -1,0 +1,1324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>StudyMind AI — Mood-Based Study Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* ══════════════════════════════════════════
+   STUDYMIND AI — COMPLETE STYLES
+══════════════════════════════════════════ */
+:root {
+  --bg: #04080f;
+  --bg2: #080f1e;
+  --card: #0c1628;
+  --card2: #101e35;
+  --border: rgba(56,189,248,0.1);
+  --border2: rgba(56,189,248,0.22);
+  --blue: #38bdf8;
+  --purple: #a78bfa;
+  --green: #4ade80;
+  --orange: #fb923c;
+  --red: #f87171;
+  --text: #e2e8f0;
+  --muted: #475569;
+  --muted2: #64748b;
+  --font: 'Outfit', sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* GRID BACKGROUND */
+body::before {
+  content:'';
+  position:fixed; inset:0;
+  background-image:
+    linear-gradient(rgba(56,189,248,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56,189,248,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events:none; z-index:0;
+}
+
+/* GLOW ORBS */
+.orb {
+  position:fixed; border-radius:50%;
+  filter:blur(100px); opacity:0.08;
+  pointer-events:none; z-index:0;
+}
+.orb1 { width:500px;height:500px;background:var(--blue);top:-100px;left:-100px; }
+.orb2 { width:400px;height:400px;background:var(--purple);bottom:-100px;right:-100px; }
+.orb3 { width:300px;height:300px;background:var(--green);top:50%;left:50%;transform:translate(-50%,-50%); }
+
+/* ── NAVBAR ── */
+nav {
+  position:sticky; top:0; z-index:100;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 32px;
+  background:rgba(4,8,15,0.8);
+  backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);
+}
+.logo {
+  font-size:1.25rem; font-weight:800;
+  letter-spacing:-0.03em;
+  display:flex; align-items:center; gap:10px;
+}
+.logo-icon {
+  width:32px;height:32px;
+  background:linear-gradient(135deg,var(--blue),var(--purple));
+  border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1rem;
+}
+.logo span { color:var(--blue); }
+.nav-right { display:flex;align-items:center;gap:16px; }
+.streak-badge {
+  display:flex;align-items:center;gap:6px;
+  background:rgba(251,146,60,0.1);
+  border:1px solid rgba(251,146,60,0.2);
+  color:var(--orange);
+  padding:6px 14px;border-radius:20px;
+  font-size:0.82rem;font-weight:600;
+}
+.api-status {
+  display:flex;align-items:center;gap:6px;
+  font-size:0.8rem;color:var(--muted2);
+}
+.status-dot {
+  width:7px;height:7px;border-radius:50%;
+  background:var(--muted);
+  transition:background 0.3s;
+}
+.status-dot.connected { background:var(--green); box-shadow:0 0 8px var(--green); }
+
+/* ── HERO ── */
+.hero {
+  text-align:center;
+  padding:56px 24px 40px;
+  position:relative; z-index:1;
+}
+.hero-pill {
+  display:inline-flex;align-items:center;gap:8px;
+  background:rgba(56,189,248,0.08);
+  border:1px solid rgba(56,189,248,0.2);
+  color:var(--blue);
+  padding:6px 18px;border-radius:20px;
+  font-size:0.78rem;font-weight:600;
+  letter-spacing:0.08em;text-transform:uppercase;
+  margin-bottom:22px;
+}
+.hero h1 {
+  font-size:clamp(2.2rem,5vw,3.8rem);
+  font-weight:900;
+  line-height:1.05;
+  letter-spacing:-0.04em;
+  margin-bottom:16px;
+}
+.grad {
+  background:linear-gradient(135deg,var(--blue) 0%,var(--purple) 50%,var(--green) 100%);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+.hero p {
+  color:var(--muted2);
+  font-size:1.05rem;
+  max-width:420px;margin:0 auto 32px;
+  font-weight:400;
+}
+
+/* ── ERROR BANNER ── */
+.error-banner {
+  display:none;
+  max-width:700px;margin:0 auto 20px;
+  background:rgba(248,113,113,0.08);
+  border:1px solid rgba(248,113,113,0.3);
+  border-radius:14px;padding:16px 20px;
+  position:relative;z-index:1;
+}
+.error-banner-inner { display:flex;align-items:flex-start;gap:12px; }
+.error-icon { font-size:1.3rem;flex-shrink:0; }
+.error-title { font-weight:700;font-size:0.92rem;color:var(--red);margin-bottom:4px; }
+.error-msg { font-size:0.82rem;color:#fca5a5;line-height:1.5; }
+.error-code {
+  font-family:var(--mono);font-size:0.76rem;
+  background:rgba(0,0,0,0.3);
+  border-radius:6px;padding:6px 10px;
+  margin-top:8px;color:#fca5a5;
+  word-break:break-all;
+}
+
+/* ── MAIN LAYOUT ── */
+.main {
+  max-width:1140px;margin:0 auto;
+  padding:0 24px 40px;
+  position:relative;z-index:1;
+  display:grid;grid-template-columns:1fr 1fr;gap:20px;
+}
+
+/* ── CARD ── */
+.card {
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:20px;
+  padding:26px;
+  transition:border-color 0.3s;
+}
+.card:hover { border-color:var(--border2); }
+.card-title {
+  font-size:1rem;font-weight:700;
+  margin-bottom:22px;
+  display:flex;align-items:center;gap:8px;
+}
+.badge {
+  font-size:0.7rem;font-weight:700;
+  letter-spacing:0.06em;text-transform:uppercase;
+  padding:3px 9px;border-radius:6px;
+  background:rgba(56,189,248,0.1);
+  border:1px solid rgba(56,189,248,0.2);
+  color:var(--blue);
+}
+
+/* ── MOOD GRID ── */
+.label {
+  font-size:0.75rem;font-weight:700;
+  color:var(--muted2);letter-spacing:0.07em;
+  text-transform:uppercase;margin-bottom:10px;
+}
+.mood-grid {
+  display:grid;grid-template-columns:repeat(4,1fr);
+  gap:8px;margin-bottom:20px;
+}
+.mood-btn {
+  background:var(--card2);
+  border:1.5px solid var(--border);
+  border-radius:12px;padding:14px 6px;
+  display:flex;flex-direction:column;
+  align-items:center;gap:6px;
+  cursor:pointer;
+  color:var(--muted2);font-size:0.8rem;
+  font-weight:600;font-family:var(--font);
+  transition:all 0.2s;
+}
+.mood-btn:hover { border-color:var(--border2);color:var(--text); }
+.mood-btn.active {
+  border-color:var(--blue);
+  background:rgba(56,189,248,0.08);
+  color:var(--blue);
+  box-shadow:0 0 20px rgba(56,189,248,0.12);
+}
+.mood-emoji { font-size:1.7rem;line-height:1; }
+
+/* ── SUBJECT CHIPS ── */
+.chips { display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px; }
+.chip {
+  background:var(--card2);
+  border:1.5px solid var(--border);
+  border-radius:20px;padding:5px 13px;
+  cursor:pointer;color:var(--muted2);
+  font-size:0.8rem;font-weight:600;
+  font-family:var(--font);
+  transition:all 0.2s;
+}
+.chip:hover { border-color:var(--border2);color:var(--text); }
+.chip.active {
+  background:rgba(167,139,250,0.1);
+  border-color:var(--purple);color:var(--purple);
+}
+
+/* ── INPUTS ── */
+.input {
+  width:100%;padding:10px 14px;
+  background:var(--card2);
+  border:1.5px solid var(--border);
+  border-radius:10px;
+  color:var(--text);font-family:var(--font);
+  font-size:0.9rem;outline:none;
+  transition:border-color 0.2s;
+}
+.input:focus { border-color:var(--blue); }
+.input::placeholder { color:var(--muted); }
+textarea.input { resize:none; }
+
+/* ── SLIDER ── */
+.slider-row { display:flex;align-items:center;gap:14px;margin-bottom:6px; }
+input[type=range] {
+  flex:1;appearance:none;
+  height:5px;background:var(--card2);
+  border-radius:5px;outline:none;cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  appearance:none;width:20px;height:20px;
+  border-radius:50%;background:var(--blue);
+  box-shadow:0 0 12px rgba(56,189,248,0.5);
+  cursor:pointer;
+}
+.time-pill {
+  background:rgba(56,189,248,0.1);
+  border:1px solid rgba(56,189,248,0.2);
+  color:var(--blue);
+  padding:6px 14px;border-radius:8px;
+  font-family:var(--mono);font-weight:600;
+  font-size:0.9rem;min-width:75px;text-align:center;
+}
+.slider-marks {
+  display:flex;justify-content:space-between;
+  font-size:0.72rem;color:var(--muted);padding:0 2px;
+}
+
+/* ── DIFFICULTY ── */
+.diff-row { display:grid;grid-template-columns:repeat(3,1fr);gap:8px; }
+.diff-btn {
+  background:var(--card2);
+  border:1.5px solid var(--border);
+  border-radius:10px;padding:9px;
+  cursor:pointer;color:var(--muted2);
+  font-size:0.8rem;font-weight:600;
+  font-family:var(--font);
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  transition:all 0.2s;
+}
+.diff-btn:hover { border-color:var(--border2);color:var(--text); }
+.diff-btn.active {
+  border-color:var(--green);
+  background:rgba(74,222,128,0.08);
+  color:var(--green);
+}
+
+/* ── GENERATE BTN ── */
+.gen-btn {
+  width:100%;padding:15px;margin-top:4px;
+  background:linear-gradient(135deg,var(--blue),var(--purple));
+  border:none;border-radius:12px;
+  color:#fff;font-family:var(--font);
+  font-size:1rem;font-weight:800;
+  cursor:pointer;letter-spacing:-0.01em;
+  box-shadow:0 8px 30px rgba(56,189,248,0.2);
+  transition:all 0.2s;position:relative;overflow:hidden;
+}
+.gen-btn:hover { transform:translateY(-2px);box-shadow:0 12px 40px rgba(56,189,248,0.3); }
+.gen-btn:active { transform:translateY(0); }
+.gen-btn:disabled { opacity:0.5;cursor:not-allowed;transform:none; }
+.btn-inner { display:flex;align-items:center;justify-content:center;gap:10px; }
+.spinner {
+  display:none;
+  width:18px;height:18px;
+  border:2px solid rgba(255,255,255,0.3);
+  border-top-color:#fff;
+  border-radius:50%;
+  animation:spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* ── MOOD DETECTOR ── */
+.detect-box {
+  margin-top:16px;
+  background:var(--card2);
+  border:1px solid var(--border);
+  border-radius:12px;padding:14px;
+}
+.detect-label {
+  font-size:0.75rem;font-weight:700;color:var(--muted2);
+  letter-spacing:0.06em;text-transform:uppercase;margin-bottom:8px;
+}
+.detected-badge {
+  display:none;margin-top:8px;padding:8px 12px;
+  background:rgba(74,222,128,0.08);
+  border:1px solid rgba(74,222,128,0.2);
+  border-radius:8px;color:var(--green);
+  font-size:0.82rem;font-weight:600;
+}
+
+/* ── OUTPUT CARD ── */
+.empty-state {
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  padding:60px 20px;gap:12px;text-align:center;
+  height:100%;min-height:400px;
+}
+.empty-icon {
+  width:70px;height:70px;
+  background:var(--card2);
+  border:1px solid var(--border);
+  border-radius:20px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:2rem;margin-bottom:4px;
+}
+.empty-state h3 { font-size:1rem;font-weight:700;color:var(--text); }
+.empty-state p { font-size:0.85rem;color:var(--muted2);max-width:220px; }
+
+/* ── PLAN OUTPUT ── */
+#planOutput { display:none; }
+.plan-top {
+  display:flex;justify-content:space-between;
+  align-items:flex-start;margin-bottom:14px;
+}
+.plan-meta {
+  font-size:0.75rem;font-weight:700;
+  color:var(--blue);text-transform:uppercase;
+  letter-spacing:0.06em;margin-bottom:4px;
+}
+.plan-title { font-size:1.2rem;font-weight:800;letter-spacing:-0.02em; }
+.action-btns { display:flex;gap:8px; }
+.action-btn {
+  background:var(--card2);border:1px solid var(--border);
+  border-radius:8px;padding:7px 10px;
+  cursor:pointer;font-size:0.9rem;
+  color:var(--text);transition:all 0.2s;
+}
+.action-btn:hover { border-color:var(--blue); }
+
+/* MOTIVATION CARD */
+.motivation-card {
+  background:linear-gradient(135deg,rgba(56,189,248,0.06),rgba(167,139,250,0.06));
+  border:1px solid rgba(56,189,248,0.12);
+  border-radius:12px;padding:14px 16px;
+  margin-bottom:16px;
+  font-size:0.88rem;font-style:italic;
+  color:var(--text);line-height:1.6;
+  position:relative;
+}
+.motivation-card::before {
+  content:'💬';position:absolute;
+  top:-10px;left:14px;font-size:1.1rem;
+  font-style:normal;
+}
+
+/* TASKS */
+.tasks { display:flex;flex-direction:column;gap:8px;margin-bottom:16px; }
+.task {
+  display:flex;align-items:center;gap:12px;
+  background:var(--card2);
+  border:1px solid var(--border);
+  border-radius:12px;padding:11px 14px;
+  transition:all 0.2s;
+  animation:fadeUp 0.4s ease forwards;
+  opacity:0;transform:translateY(10px);
+}
+@keyframes fadeUp { to { opacity:1;transform:translateY(0); } }
+.task.is-break {
+  background:rgba(74,222,128,0.04);
+  border-color:rgba(74,222,128,0.15);
+}
+.task.done { opacity:0.45; }
+.task.done .task-text { text-decoration:line-through; }
+.task-check {
+  width:22px;height:22px;min-width:22px;
+  border-radius:7px;
+  border:2px solid var(--border2);
+  cursor:pointer;display:flex;align-items:center;
+  justify-content:center;font-size:0.75rem;
+  transition:all 0.2s;
+}
+.task-check.checked { background:var(--green);border-color:var(--green);color:#000; }
+.task-num {
+  font-family:var(--mono);font-size:0.7rem;
+  color:var(--muted);min-width:20px;
+}
+.task-icon { font-size:1.1rem; }
+.task-text { flex:1;font-size:0.86rem;font-weight:500; }
+.task-dur {
+  font-family:var(--mono);font-size:0.78rem;font-weight:600;
+  color:var(--blue);
+  background:rgba(56,189,248,0.08);
+  padding:3px 9px;border-radius:6px;white-space:nowrap;
+}
+.task-dur.break { color:var(--green);background:rgba(74,222,128,0.08); }
+
+/* STATS ROW */
+.stats-row {
+  display:grid;grid-template-columns:repeat(4,1fr);
+  gap:8px;margin-bottom:14px;
+}
+.stat {
+  background:var(--card2);border:1px solid var(--border);
+  border-radius:10px;padding:10px;text-align:center;
+}
+.stat-val {
+  font-family:var(--mono);font-size:1rem;font-weight:700;
+  color:var(--blue);display:block;
+}
+.stat-lbl { font-size:0.68rem;color:var(--muted2);margin-top:2px; }
+
+/* TIPS */
+.tips-box {
+  background:rgba(251,146,60,0.05);
+  border:1px solid rgba(251,146,60,0.15);
+  border-radius:12px;padding:12px 16px;
+  margin-bottom:14px;
+}
+.tips-title {
+  font-size:0.72rem;font-weight:700;
+  color:var(--orange);text-transform:uppercase;
+  letter-spacing:0.06em;margin-bottom:8px;
+}
+.tips-list { display:flex;flex-direction:column;gap:5px; }
+.tip-item {
+  font-size:0.82rem;color:var(--text);
+  display:flex;gap:8px;align-items:flex-start;
+}
+.tip-item::before { content:'→';color:var(--orange);flex-shrink:0; }
+
+/* FOCUS TIMER */
+.focus-btn {
+  width:100%;padding:11px;
+  background:transparent;
+  border:1.5px solid var(--border);
+  border-radius:12px;
+  color:var(--muted2);font-family:var(--font);
+  font-size:0.88rem;font-weight:600;
+  cursor:pointer;transition:all 0.2s;
+}
+.focus-btn:hover { border-color:var(--purple);color:var(--purple); }
+.timer-card {
+  display:none;
+  background:linear-gradient(135deg,rgba(167,139,250,0.08),rgba(56,189,248,0.08));
+  border:1px solid rgba(167,139,250,0.2);
+  border-radius:14px;padding:20px;
+  margin-bottom:12px;text-align:center;
+}
+.timer-label {
+  font-size:0.72rem;font-weight:700;color:var(--purple);
+  text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;
+}
+.timer-num {
+  font-family:var(--mono);font-size:3rem;font-weight:700;
+  color:var(--text);margin-bottom:8px;letter-spacing:-0.02em;
+}
+.timer-tip { font-size:0.82rem;color:var(--muted2);margin-bottom:14px;font-style:italic; }
+.timer-btns { display:flex;gap:10px;justify-content:center; }
+.tbtn {
+  padding:8px 20px;border-radius:8px;
+  border:1px solid var(--border);
+  background:var(--card2);color:var(--text);
+  font-family:var(--font);font-size:0.84rem;
+  font-weight:600;cursor:pointer;transition:all 0.2s;
+}
+.tbtn:hover { border-color:var(--purple); }
+.tbtn.stop:hover { border-color:var(--red);color:var(--red); }
+
+/* ── TRACKER SECTION ── */
+.tracker {
+  max-width:1140px;margin:0 auto 40px;
+  padding:0 24px;
+  position:relative;z-index:1;
+}
+.tracker-grid {
+  display:grid;grid-template-columns:repeat(4,1fr);
+  gap:14px;margin-bottom:18px;
+}
+.tstat {
+  background:var(--card);border:1px solid var(--border);
+  border-radius:16px;padding:20px;text-align:center;
+  transition:border-color 0.3s;
+}
+.tstat:hover { border-color:var(--border2); }
+.tstat-icon { font-size:1.6rem;margin-bottom:8px; }
+.tstat-val {
+  font-family:var(--mono);font-size:1.5rem;font-weight:700;
+  color:var(--blue);
+}
+.tstat-lbl { font-size:0.75rem;color:var(--muted2);margin-top:4px; }
+
+.weak-card {
+  background:var(--card);border:1px solid var(--border);
+  border-radius:16px;padding:18px 20px;
+  margin-bottom:14px;
+}
+.weak-head {
+  font-size:0.78rem;font-weight:700;color:var(--orange);
+  text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;
+}
+.weak-tags { display:flex;flex-wrap:wrap;gap:8px; }
+.weak-tag {
+  background:rgba(251,146,60,0.08);
+  border:1px solid rgba(251,146,60,0.2);
+  color:var(--orange);padding:4px 12px;
+  border-radius:6px;font-size:0.8rem;font-weight:600;
+}
+
+.sessions { display:flex;flex-direction:column;gap:8px; }
+.session {
+  background:var(--card);border:1px solid var(--border);
+  border-radius:12px;padding:12px 16px;
+  display:flex;align-items:center;gap:14px;
+  transition:border-color 0.2s;
+}
+.session:hover { border-color:var(--border2); }
+.session-mood { font-size:1.3rem; }
+.session-info { flex:1; }
+.session-sub { font-weight:700;font-size:0.9rem; }
+.session-meta { font-size:0.76rem;color:var(--muted2);margin-top:2px; }
+.session-score {
+  font-family:var(--mono);font-weight:700;
+  font-size:0.85rem;color:var(--green);
+}
+
+.empty-tracker {
+  background:var(--card);border:1px solid var(--border);
+  border-radius:16px;padding:40px;
+  text-align:center;color:var(--muted2);font-size:0.9rem;
+}
+
+/* ── TOAST ── */
+.toast {
+  position:fixed;bottom:24px;right:24px;
+  background:var(--card);
+  border:1px solid var(--border2);
+  padding:12px 20px;border-radius:12px;
+  font-size:0.88rem;color:var(--text);
+  z-index:999;opacity:0;
+  transform:translateY(12px);
+  transition:all 0.3s;pointer-events:none;
+  box-shadow:0 8px 30px rgba(0,0,0,0.4);
+}
+.toast.show { opacity:1;transform:translateY(0); }
+
+/* ── FOOTER ── */
+footer {
+  text-align:center;padding:20px;
+  color:var(--muted);font-size:0.8rem;
+  border-top:1px solid var(--border);
+  position:relative;z-index:1;
+}
+
+/* ── FIELD SPACING ── */
+.field { margin-bottom:18px; }
+
+/* ── RESPONSIVE ── */
+@media(max-width:860px) {
+  .main { grid-template-columns:1fr; }
+  .tracker-grid { grid-template-columns:repeat(2,1fr); }
+  .stats-row { grid-template-columns:repeat(2,1fr); }
+  .mood-grid { grid-template-columns:repeat(2,1fr); }
+  nav { padding:12px 16px; }
+  .tracker { padding:0 16px; }
+  .main { padding:0 16px 32px; }
+}
+</style>
+</head>
+<body>
+
+<!-- AMBIENT ORBS -->
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+<div class="orb orb3"></div>
+
+<!-- NAVBAR -->
+<nav>
+  <div class="logo">
+    <div class="logo-icon">⚡</div>
+    Study<span>Mind</span> AI
+  </div>
+  <div class="nav-right">
+    <div class="api-status">
+      <div class="status-dot connected" id="statusDot"></div>
+      <span id="statusText">AI Connected</span>
+    </div>
+    <div class="streak-badge">🔥 <span id="streakNum">0</span> day streak</div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-pill">✦ Gen-AI Powered · Pomodoro · Smart Planning</div>
+  <h1>Study <span class="grad">Smarter</span>,<br>Not Harder.</h1>
+  <p>Tell us your mood. We'll build your perfect AI study plan.</p>
+</div>
+
+<!-- ERROR BANNER -->
+<div class="error-banner" id="errorBanner">
+  <div class="error-banner-inner">
+    <div class="error-icon">❌</div>
+    <div>
+      <div class="error-title" id="errorTitle">Something went wrong</div>
+      <div class="error-msg" id="errorMsg"></div>
+      <div class="error-code" id="errorCode" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APP GRID -->
+<div class="main">
+
+  <!-- LEFT: INPUT PANEL -->
+  <div class="card">
+    <div class="card-title">🎯 Create Study Plan <span class="badge">AI Powered</span></div>
+
+    <!-- MOOD -->
+    <div class="field">
+      <div class="label">How are you feeling?</div>
+      <div class="mood-grid">
+        <button class="mood-btn" data-mood="motivated" onclick="pickMood(this)">
+          <span class="mood-emoji">🚀</span>Motivated
+        </button>
+        <button class="mood-btn" data-mood="tired" onclick="pickMood(this)">
+          <span class="mood-emoji">😴</span>Tired
+        </button>
+        <button class="mood-btn" data-mood="stressed" onclick="pickMood(this)">
+          <span class="mood-emoji">😟</span>Stressed
+        </button>
+        <button class="mood-btn" data-mood="normal" onclick="pickMood(this)">
+          <span class="mood-emoji">😐</span>Normal
+        </button>
+      </div>
+    </div>
+
+    <!-- SUBJECT -->
+    <div class="field">
+      <div class="label">Subject / Topic</div>
+      <div class="chips">
+        <button class="chip" onclick="pickChip(this)">Python</button>
+        <button class="chip" onclick="pickChip(this)">Math</button>
+        <button class="chip" onclick="pickChip(this)">Physics</button>
+        <button class="chip" onclick="pickChip(this)">Chemistry</button>
+        <button class="chip" onclick="pickChip(this)">DSA</button>
+        <button class="chip" onclick="pickChip(this)">ML / AI</button>
+        <button class="chip" onclick="pickChip(this)">English</button>
+        <button class="chip" onclick="pickChip(this)">History</button>
+      </div>
+      <input class="input" id="customSubject" placeholder="Or type your own subject…"/>
+    </div>
+
+    <!-- TIME -->
+    <div class="field">
+      <div class="label">Available Time</div>
+      <div class="slider-row">
+        <input type="range" id="timeSlider" min="30" max="300" step="15" value="120" oninput="updateTime(this)"/>
+        <div class="time-pill" id="timePill">2h 0m</div>
+      </div>
+      <div class="slider-marks"><span>30m</span><span>1h</span><span>2h</span><span>3h</span><span>5h</span></div>
+    </div>
+
+    <!-- DIFFICULTY -->
+    <div class="field">
+      <div class="label">Difficulty Level</div>
+      <div class="diff-row">
+        <button class="diff-btn" data-diff="beginner" onclick="pickDiff(this)">🌱 Beginner</button>
+        <button class="diff-btn active" data-diff="intermediate" onclick="pickDiff(this)">⚡ Intermediate</button>
+        <button class="diff-btn" data-diff="advanced" onclick="pickDiff(this)">🔥 Advanced</button>
+      </div>
+    </div>
+
+    <!-- GENERATE -->
+    <button class="gen-btn" id="genBtn" onclick="generate()">
+      <div class="btn-inner">
+        <div class="spinner" id="spinner"></div>
+        <span id="btnText">✨ Generate My Study Plan</span>
+      </div>
+    </button>
+
+    <!-- MOOD TEXT DETECTOR -->
+    <div class="detect-box">
+      <div class="detect-label">🤖 AI Mood Detector — type how you feel</div>
+      <textarea class="input" id="moodText" rows="2" placeholder="e.g. I feel really tired and stressed today…" oninput="detectMood()"></textarea>
+      <div class="detected-badge" id="detectedBadge"></div>
+    </div>
+  </div>
+
+  <!-- RIGHT: OUTPUT PANEL -->
+  <div class="card" style="min-height:500px;display:flex;flex-direction:column;">
+
+    <!-- EMPTY STATE -->
+    <div class="empty-state" id="emptyState">
+      <div class="empty-icon">🧠</div>
+      <h3>Your AI Study Plan</h3>
+      <p>Select your mood, subject & time — then hit Generate!</p>
+    </div>
+
+    <!-- PLAN OUTPUT -->
+    <div id="planOutput">
+
+      <div class="plan-top">
+        <div>
+          <div class="plan-meta" id="planMeta"></div>
+          <div class="plan-title" id="planTitle"></div>
+        </div>
+        <div class="action-btns">
+          <button class="action-btn" onclick="copyPlan()" title="Copy">📋</button>
+          <button class="action-btn" onclick="downloadPlan()" title="Download">💾</button>
+        </div>
+      </div>
+
+      <div class="motivation-card" id="motivCard"></div>
+
+      <div class="tasks" id="tasksList"></div>
+
+      <div class="stats-row">
+        <div class="stat"><span class="stat-val" id="sStudy">—</span><div class="stat-lbl">Study Time</div></div>
+        <div class="stat"><span class="stat-val" id="sBreaks">—</span><div class="stat-lbl">Breaks</div></div>
+        <div class="stat"><span class="stat-val" id="sTasks">—</span><div class="stat-lbl">Tasks</div></div>
+        <div class="stat"><span class="stat-val" id="sScore">—</span><div class="stat-lbl">Focus Score</div></div>
+      </div>
+
+      <div class="tips-box" id="tipsBox" style="display:none">
+        <div class="tips-title">💡 AI Study Tips</div>
+        <div class="tips-list" id="tipsList"></div>
+      </div>
+
+      <!-- FOCUS TIMER -->
+      <div class="timer-card" id="timerCard">
+        <div class="timer-label">⚡ Focus Mode — Pomodoro Active</div>
+        <div class="timer-num" id="timerNum">25:00</div>
+        <div class="timer-tip" id="timerTip">Put your phone away. You've got this! 💪</div>
+        <div class="timer-btns">
+          <button class="tbtn" onclick="pauseTimer()">⏸ Pause</button>
+          <button class="tbtn stop" onclick="stopTimer()">⏹ Stop</button>
+        </div>
+      </div>
+      <button class="focus-btn" id="focusBtn" onclick="startTimer()">⚡ Start Focus Mode (Pomodoro Timer)</button>
+
+    </div>
+  </div>
+</div>
+
+<!-- PROGRESS TRACKER -->
+<div class="tracker">
+  <div class="card" style="margin-bottom:14px;">
+    <div class="card-title" style="margin-bottom:18px;">
+      📊 Progress Tracker
+      <button class="action-btn" style="margin-left:auto;" onclick="clearData()">🗑️ Clear</button>
+    </div>
+
+    <div id="trackerEmpty" class="empty-tracker">
+      No sessions yet! Generate a study plan to start tracking your progress. 🎯
+    </div>
+
+    <div id="trackerFull" style="display:none;">
+      <div class="tracker-grid">
+        <div class="tstat"><div class="tstat-icon">⏱️</div><div class="tstat-val" id="tTime">0m</div><div class="tstat-lbl">Total Study Time</div></div>
+        <div class="tstat"><div class="tstat-icon">✅</div><div class="tstat-val" id="tSess">0</div><div class="tstat-lbl">Sessions Done</div></div>
+        <div class="tstat"><div class="tstat-icon">🎯</div><div class="tstat-val" id="tFocus">0%</div><div class="tstat-lbl">Avg Focus Score</div></div>
+        <div class="tstat"><div class="tstat-icon">📚</div><div class="tstat-val" id="tTop">—</div><div class="tstat-lbl">Top Subject</div></div>
+      </div>
+      <div class="weak-card" id="weakCard"></div>
+      <div class="sessions" id="sessionsList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<footer>⚡ StudyMind AI — Hackathon 2025 · Powered by Anthropic Claude · Built with ❤️</footer>
+
+<script>
+// ══════════════════════════════════════════
+//  STUDYMIND AI — COMPLETE APP LOGIC
+// ══════════════════════════════════════════
+
+// ── YOUR API KEY — PASTE IT HERE ──
+const API_KEY = 'YOUR_ANTHROPIC_API_KEY_HERE';
+// Get your key at: https://console.anthropic.com
+// Replace the text above with your actual key e.g:
+// const API_KEY = 'sk-ant-api03-xxxxxxxxxxxxxxxx';
+
+// ── STATE ──
+const S = {
+  mood: null,
+  subject: null,
+  time: 120,
+  diff: 'intermediate',
+  plan: null,
+  done: new Set(),
+  timerInterval: null,
+  timerSecs: 25 * 60,
+  timerRunning: false,
+  sessions: JSON.parse(localStorage.getItem('sm_sessions') || '[]'),
+  streak: parseInt(localStorage.getItem('sm_streak') || '0'),
+};
+
+const EMOJIS = { motivated:'🚀', tired:'😴', stressed:'😟', normal:'😐' };
+const TIPS = [
+  'Put your phone face-down during each session.',
+  'Close all unnecessary browser tabs before starting.',
+  'Drink water — dehydration kills focus.',
+  'One topic at a time. Multitasking = 0 progress.',
+  'Done is better than perfect. Start now.',
+];
+
+// ── INIT ──
+window.onload = () => {
+  document.getElementById('streakNum').textContent = S.streak;
+  const keyOk = API_KEY && API_KEY !== 'YOUR_ANTHROPIC_API_KEY_HERE';
+  document.getElementById('statusDot').className = 'status-dot' + (keyOk ? ' connected' : '');
+  document.getElementById('statusText').textContent = keyOk ? 'AI Connected' : 'API Key Missing';
+  if (!keyOk) {
+    showError(
+      '⚠️ API Key Not Set',
+      'Open index.html in VS Code, find line: const API_KEY = \'YOUR_ANTHROPIC_API_KEY_HERE\' and replace it with your actual Anthropic API key.',
+      'Get your free key at: https://console.anthropic.com → API Keys → Create Key'
+    );
+  }
+  renderTracker();
+};
+
+// ── ERROR DISPLAY ──
+function showError(title, msg, code) {
+  document.getElementById('errorBanner').style.display = 'block';
+  document.getElementById('errorTitle').textContent = title;
+  document.getElementById('errorMsg').textContent = msg;
+  if (code) {
+    document.getElementById('errorCode').style.display = 'block';
+    document.getElementById('errorCode').textContent = code;
+  } else {
+    document.getElementById('errorCode').style.display = 'none';
+  }
+  // Scroll to error
+  document.getElementById('errorBanner').scrollIntoView({behavior:'smooth', block:'center'});
+}
+
+function hideError() {
+  document.getElementById('errorBanner').style.display = 'none';
+}
+
+// ── MOOD ──
+function pickMood(btn) {
+  document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  S.mood = btn.dataset.mood;
+}
+
+// ── SUBJECT CHIP ──
+function pickChip(chip) {
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  chip.classList.add('active');
+  S.subject = chip.textContent.trim();
+  document.getElementById('customSubject').value = '';
+}
+
+// ── TIME ──
+function updateTime(el) {
+  S.time = parseInt(el.value);
+  const h = Math.floor(S.time / 60), m = S.time % 60;
+  document.getElementById('timePill').textContent = h > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : `${m}m`;
+}
+
+// ── DIFFICULTY ──
+function pickDiff(btn) {
+  document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  S.diff = btn.dataset.diff;
+}
+
+// ── MOOD TEXT DETECTOR ──
+function detectMood() {
+  const txt = document.getElementById('moodText').value.toLowerCase();
+  const badge = document.getElementById('detectedBadge');
+  if (txt.length < 8) { badge.style.display = 'none'; return; }
+
+  const rules = [
+    { words:['tired','sleepy','exhausted','drained','lazy','sleepy'], mood:'tired' },
+    { words:['stress','anxious','worried','overwhelm','panic','nervous','scared'], mood:'stressed' },
+    { words:['motivated','excited','ready','energetic','great','amazing','pumped','happy'], mood:'motivated' },
+  ];
+
+  let found = 'normal';
+  for (const r of rules) if (r.words.some(w => txt.includes(w))) { found = r.mood; break; }
+
+  badge.style.display = 'block';
+  badge.textContent = `🤖 Detected: ${EMOJIS[found]} ${cap(found)} — selecting automatically!`;
+  const btn = document.querySelector(`[data-mood="${found}"]`);
+  if (btn) pickMood(btn);
+}
+
+// ── GENERATE PLAN ──
+async function generate() {
+  const subject = document.getElementById('customSubject').value.trim() || S.subject;
+  if (!S.mood) return toast('⚠️ Please select your mood first!');
+  if (!subject) return toast('⚠️ Please select or enter a subject!');
+
+  // Check API key
+  if (!API_KEY || API_KEY === 'YOUR_ANTHROPIC_API_KEY_HERE') {
+    showError(
+      '❌ API Key Not Configured',
+      'You need to add your Anthropic API key inside index.html to use AI features.',
+      'Step: Open index.html → Find line 1 of the script → Replace YOUR_ANTHROPIC_API_KEY_HERE with your real key from console.anthropic.com'
+    );
+    return;
+  }
+
+  hideError();
+
+  // Loading state
+  const btn = document.getElementById('genBtn');
+  btn.disabled = true;
+  document.getElementById('spinner').style.display = 'block';
+  document.getElementById('btnText').textContent = 'Generating…';
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('planOutput').style.display = 'none';
+
+  const h = Math.floor(S.time / 60), m = S.time % 60;
+  const tStr = h > 0 ? `${h} hour${h>1?'s':''} ${m>0?m+' minutes':''}` : `${m} minutes`;
+
+  const prompt = `You are StudyMind AI. Generate a personalized study plan.
+Student: Mood=${S.mood}, Subject=${subject}, Time=${tStr}, Difficulty=${S.diff}
+
+Rules:
+- Pomodoro technique with breaks
+- Tired→light activities (videos, revision); Motivated→deep work; Stressed→small wins+breaks
+- Be SPECIFIC (not "study python" but "write 3 functions using for loops")
+
+Return ONLY valid JSON, no markdown:
+{"title":"short title","motivation":"1 sentence for their mood","studyMethod":"method name","focusScore":75,"tasks":[{"id":1,"type":"study","icon":"emoji","activity":"specific task","duration":25}],"tips":["tip1","tip2"]}`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': API_KEY,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role:'user', content: prompt }]
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      const errMsg = err.error?.message || `HTTP ${res.status} ${res.statusText}`;
+      const errType = err.error?.type || 'api_error';
+
+      // Show specific error messages
+      if (res.status === 401) {
+        showError(
+          '❌ Invalid API Key (401 Unauthorized)',
+          'Your API key is wrong or expired. Please check and update it in index.html.',
+          `Error: ${errMsg}\nFix: Go to console.anthropic.com → API Keys → Create a new key → paste it in index.html`
+        );
+      } else if (res.status === 429) {
+        showError(
+          '⚠️ Rate Limit Exceeded (429)',
+          'Too many requests. Please wait 1-2 minutes and try again.',
+          `Error: ${errMsg}`
+        );
+      } else if (res.status === 400) {
+        showError(
+          '❌ Bad Request (400)',
+          'Something is wrong with the request format.',
+          `Error: ${errMsg}`
+        );
+      } else {
+        showError(
+          `❌ API Error (${res.status})`,
+          'The AI API returned an error. Showing offline plan instead.',
+          `Error type: ${errType}\nMessage: ${errMsg}`
+        );
+      }
+      throw new Error(errMsg);
+    }
+
+    const data = await res.json();
+    const raw = data.content.map(c => c.text || '').join('').replace(/```json|```/g,'').trim();
+
+    let plan;
+    try {
+      plan = JSON.parse(raw);
+    } catch (parseErr) {
+      showError(
+        '⚠️ AI Response Parse Error',
+        'AI returned unexpected format. Showing smart offline plan instead.',
+        `Raw response: ${raw.slice(0, 200)}...`
+      );
+      throw parseErr;
+    }
+
+    plan.subject = subject; plan.mood = S.mood; plan.time = S.time;
+    S.plan = plan;
+    hideError();
+    renderPlan(plan);
+    saveSession(plan);
+    toast('✅ AI Study Plan Generated!');
+
+  } catch (e) {
+    console.error('StudyMind Error:', e);
+    // Always show fallback plan even on error
+    const plan = fallback(S.mood, subject, S.time, S.diff);
+    S.plan = plan;
+    renderPlan(plan);
+    saveSession(plan);
+    // Don't override a specific error already shown
+    if (document.getElementById('errorBanner').style.display === 'none') {
+      showError(
+        '⚠️ Network Error',
+        'Could not connect to AI. Check your internet connection. Showing smart offline plan.',
+        `Details: ${e.message}`
+      );
+    }
+  }
+
+  btn.disabled = false;
+  document.getElementById('spinner').style.display = 'none';
+  document.getElementById('btnText').textContent = '✨ Generate My Study Plan';
+}
+
+// ── FALLBACK PLAN ──
+function fallback(mood, subject, mins, diff) {
+  const bases = {
+    motivated:[
+      {id:1,type:'study',icon:'📖',activity:`Study core concepts of ${subject}`,duration:30},
+      {id:2,type:'break',icon:'☕',activity:'Short break — water & stretch',duration:5},
+      {id:3,type:'study',icon:'✏️',activity:`Solve practice problems in ${subject}`,duration:25},
+      {id:4,type:'break',icon:'🚶',activity:'Walk around for 5 minutes',duration:5},
+      {id:5,type:'study',icon:'🧪',activity:`Apply concepts — mini project or quiz`,duration:30},
+      {id:6,type:'review',icon:'🔁',activity:'Review & summarize key points',duration:10},
+    ],
+    tired:[
+      {id:1,type:'study',icon:'🎥',activity:`Watch a short video on ${subject}`,duration:15},
+      {id:2,type:'break',icon:'💧',activity:'Break — drink water, relax eyes',duration:10},
+      {id:3,type:'study',icon:'📖',activity:`Skim your notes on ${subject}`,duration:20},
+      {id:4,type:'break',icon:'😴',activity:'Micro rest — close eyes for 5 min',duration:5},
+      {id:5,type:'review',icon:'🔁',activity:'Write 3 things you remember',duration:10},
+    ],
+    stressed:[
+      {id:1,type:'study',icon:'🧘',activity:'Take 3 deep breaths, then open your notes',duration:5},
+      {id:2,type:'study',icon:'📝',activity:`Pick the EASIEST topic in ${subject} and start`,duration:20},
+      {id:3,type:'break',icon:'☕',activity:'Calming break — no phone, just breathe',duration:10},
+      {id:4,type:'study',icon:'✏️',activity:`Do 3 small exercises in ${subject}`,duration:20},
+      {id:5,type:'review',icon:'🌟',activity:'Write what you learned — celebrate progress!',duration:5},
+    ],
+    normal:[
+      {id:1,type:'study',icon:'📖',activity:`Study ${subject} systematically`,duration:25},
+      {id:2,type:'break',icon:'☕',activity:'5 min Pomodoro break',duration:5},
+      {id:3,type:'study',icon:'✏️',activity:`Practice ${subject} problems`,duration:25},
+      {id:4,type:'break',icon:'🚶',activity:'Short walk break',duration:5},
+      {id:5,type:'review',icon:'🔁',activity:`Summarize ${subject} concepts`,duration:20},
+    ],
+  };
+  const motivations = {
+    motivated:`You're in the zone — let's make every minute count! 🚀`,
+    tired:`Even a tired mind can absorb small bits. Small progress beats no progress!`,
+    stressed:`One step at a time. You don't have to do everything — just start with one thing.`,
+    normal:`Consistency is the secret weapon. Let's build that knowledge today!`,
+  };
+  const tasks = (bases[mood] || bases.normal).filter((_,i) => {
+    const acc = (bases[mood]||bases.normal).slice(0,i+1).reduce((a,t)=>a+t.duration,0);
+    return acc <= mins + 5;
+  });
+  return {
+    title:`${cap(mood)} Mode — ${subject}`,
+    motivation: motivations[mood] || motivations.normal,
+    studyMethod: mood==='motivated'?'Active Recall':mood==='tired'?'Spaced Repetition':'Pomodoro',
+    focusScore: mood==='motivated'?88:mood==='tired'?62:mood==='stressed'?65:75,
+    tasks,
+    tips:['Start with the easiest task first.','Turn off notifications.','Track your progress after each session.'],
+    subject, mood, time:mins,
+  };
+}
+
+// ── RENDER PLAN ──
+function renderPlan(plan) {
+  document.getElementById('planOutput').style.display = 'block';
+  document.getElementById('emptyState').style.display = 'none';
+
+  document.getElementById('planMeta').textContent =
+    `${EMOJIS[plan.mood]} ${cap(plan.mood)} Mode  ·  ${plan.subject}  ·  ${plan.studyMethod}`;
+  document.getElementById('planTitle').textContent = plan.title;
+  document.getElementById('motivCard').textContent = `"${plan.motivation}"`;
+
+  // Tasks
+  const list = document.getElementById('tasksList');
+  list.innerHTML = '';
+  S.done.clear();
+
+  plan.tasks.forEach((t, i) => {
+    const isBreak = t.type === 'break';
+    const div = document.createElement('div');
+    div.className = `task${isBreak?' is-break':''}`;
+    div.id = `task-${t.id}`;
+    div.style.animationDelay = `${i * 0.07}s`;
+    div.innerHTML = `
+      <div class="task-check" id="chk-${t.id}" onclick="toggleTask(${t.id})"></div>
+      <span class="task-num">${String(t.id).padStart(2,'0')}</span>
+      <span class="task-icon">${t.icon}</span>
+      <span class="task-text">${t.activity}</span>
+      <span class="task-dur${isBreak?' break':''}">${t.duration}m</span>
+    `;
+    list.appendChild(div);
+  });
+
+  // Stats
+  const study = plan.tasks.filter(t => t.type !== 'break');
+  const breaks = plan.tasks.filter(t => t.type === 'break');
+  const sm = study.reduce((a,t) => a+t.duration, 0);
+  document.getElementById('sStudy').textContent = sm >= 60 ? `${Math.floor(sm/60)}h${sm%60?sm%60+'m':''}` : sm+'m';
+  document.getElementById('sBreaks').textContent = breaks.length;
+  document.getElementById('sTasks').textContent = study.length;
+  document.getElementById('sScore').textContent = (plan.focusScore||75)+'%';
+
+  // Tips
+  if (plan.tips && plan.tips.length) {
+    document.getElementById('tipsBox').style.display = 'block';
+    document.getElementById('tipsList').innerHTML = plan.tips.map(t =>
+      `<div class="tip-item">${t}</div>`).join('');
+  }
+
+  document.getElementById('timerCard').style.display = 'none';
+  document.getElementById('focusBtn').style.display = 'block';
+}
+
+// ── TASK TOGGLE ──
+function toggleTask(id) {
+  const chk = document.getElementById(`chk-${id}`);
+  const row = document.getElementById(`task-${id}`);
+  if (S.done.has(id)) {
+    S.done.delete(id); chk.classList.remove('checked'); chk.textContent = '';
+    row.classList.remove('done');
+  } else {
+    S.done.add(id); chk.classList.add('checked'); chk.textContent = '✓';
+    row.classList.add('done');
+    toast('✅ Task complete! Keep going!');
+  }
+}
+
+// ── TIMER ──
+function startTimer() {
+  document.getElementById('timerCard').style.display = 'block';
+  document.getElementById('focusBtn').style.display = 'none';
+  S.timerSecs = 25 * 60; S.timerRunning = true;
+  updateTimerDisplay();
+  const tips = TIPS;
+  document.getElementById('timerTip').textContent = tips[Math.floor(Math.random()*tips.length)];
+  S.timerInterval = setInterval(() => {
+    if (!S.timerRunning) return;
+    S.timerSecs--;
+    updateTimerDisplay();
+    if (S.timerSecs <= 0) {
+      clearInterval(S.timerInterval);
+      toast('🎉 25 min session done! Take a 5 min break!');
+      document.getElementById('timerTip').textContent = '🎉 Great session! Rest for 5 minutes.';
+    }
+  }, 1000);
+}
+function pauseTimer() {
+  S.timerRunning = !S.timerRunning;
+  document.querySelector('.tbtn').textContent = S.timerRunning ? '⏸ Pause' : '▶️ Resume';
+}
+function stopTimer() {
+  clearInterval(S.timerInterval); S.timerRunning = false;
+  document.getElementById('timerCard').style.display = 'none';
+  document.getElementById('focusBtn').style.display = 'block';
+}
+function updateTimerDisplay() {
+  const m = Math.floor(S.timerSecs/60), s = S.timerSecs%60;
+  document.getElementById('timerNum').textContent =
+    `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
+// ── COPY / DOWNLOAD ──
+function copyPlan() {
+  if (!S.plan) return;
+  const txt = [`📚 ${S.plan.title}`, `"${S.plan.motivation}"`, '',
+    ...S.plan.tasks.map(t => `${t.icon} ${String(t.id).padStart(2,'0')}. [${t.duration}m] ${t.activity}`)
+  ].join('\n');
+  navigator.clipboard.writeText(txt).then(() => toast('📋 Plan copied!'));
+}
+function downloadPlan() {
+  if (!S.plan) return;
+  const blob = new Blob([JSON.stringify(S.plan, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `studymind_${S.plan.subject}_${Date.now()}.json`;
+  a.click();
+  toast('💾 Plan downloaded!');
+}
+
+// ── SESSIONS ──
+function saveSession(plan) {
+  const sess = {
+    id: Date.now(),
+    date: new Date().toLocaleDateString(),
+    time: new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),
+    subject: plan.subject, mood: plan.mood,
+    duration: plan.time, focusScore: plan.focusScore||75,
+    tasks: plan.tasks.length,
+  };
+  S.sessions.unshift(sess);
+  if (S.sessions.length > 20) S.sessions = S.sessions.slice(0,20);
+  localStorage.setItem('sm_sessions', JSON.stringify(S.sessions));
+  updateStreak(); renderTracker();
+}
+function updateStreak() {
+  const today = new Date().toLocaleDateString();
+  if (localStorage.getItem('sm_last') !== today) {
+    S.streak++;
+    localStorage.setItem('sm_streak', S.streak);
+    localStorage.setItem('sm_last', today);
+    document.getElementById('streakNum').textContent = S.streak;
+  }
+}
+function clearData() {
+  S.sessions = []; S.streak = 0;
+  ['sm_sessions','sm_streak','sm_last'].forEach(k => localStorage.removeItem(k));
+  document.getElementById('streakNum').textContent = 0;
+  renderTracker(); toast('🗑️ Data cleared!');
+}
+
+function renderTracker() {
+  const s = S.sessions;
+  if (!s.length) {
+    document.getElementById('trackerEmpty').style.display = 'block';
+    document.getElementById('trackerFull').style.display = 'none';
+    return;
+  }
+  document.getElementById('trackerEmpty').style.display = 'none';
+  document.getElementById('trackerFull').style.display = 'block';
+
+  const totalMin = s.reduce((a,x)=>a+x.duration,0);
+  const avgF = Math.round(s.reduce((a,x)=>a+x.focusScore,0)/s.length);
+  const subCount = {}; s.forEach(x=>{subCount[x.subject]=(subCount[x.subject]||0)+1;});
+  const top = Object.entries(subCount).sort((a,b)=>b[1]-a[1])[0]?.[0]||'—';
+
+  document.getElementById('tTime').textContent = totalMin>=60?`${Math.floor(totalMin/60)}h`:totalMin+'m';
+  document.getElementById('tSess').textContent = s.length;
+  document.getElementById('tFocus').textContent = avgF+'%';
+  document.getElementById('tTop').textContent = top;
+
+  // Weak topics
+  const wmap = {}; s.forEach(x=>{if(!wmap[x.subject])wmap[x.subject]=[];wmap[x.subject].push(x.focusScore);});
+  const weak = Object.entries(wmap)
+    .map(([sub,sc])=>({sub,avg:Math.round(sc.reduce((a,b)=>a+b,0)/sc.length)}))
+    .filter(x=>x.avg<70);
+  document.getElementById('weakCard').innerHTML = weak.length
+    ? `<div class="weak-head">⚠️ Weak Areas — Need More Practice</div>
+       <div class="weak-tags">${weak.map(w=>`<span class="weak-tag">📌 ${w.sub} (${w.avg}%)</span>`).join('')}</div>`
+    : `<div class="weak-head" style="color:var(--green)">✅ All subjects looking strong! Keep it up.</div>`;
+
+  document.getElementById('sessionsList').innerHTML = s.slice(0,8).map(x=>`
+    <div class="session">
+      <div class="session-mood">${EMOJIS[x.mood]||'😐'}</div>
+      <div class="session-info">
+        <div class="session-sub">${x.subject}</div>
+        <div class="session-meta">${x.date} at ${x.time} · ${x.duration}min · ${x.tasks} tasks</div>
+      </div>
+      <div class="session-score">${x.focusScore}% focus</div>
+    </div>
+  `).join('');
+}
+
+// ── HELPERS ──
+function cap(s) { return s ? s[0].toUpperCase()+s.slice(1) : ''; }
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2800);
+}
+</script>
+</body>
+</html>
